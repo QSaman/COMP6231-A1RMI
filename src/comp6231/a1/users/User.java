@@ -33,19 +33,26 @@ public class User {
 			System.setSecurityManager(new SecurityManager());
 		Registry registry = LocateRegistry.getRegistry();
 		AdminUser user = (AdminUser)registry.lookup("saman_admin");
-		user.testMethod();
-		testCreateRoom(user);
-		//testCreateRoom(user);
-		testDeleteRoom(user);
+		test(user);
 	}
 	
-	public static void testCreateRoom(AdminUser user)
+	public static void test(AdminUser user) throws RemoteException
 	{
-		DateReservation date = new DateReservation("17-09-2017");
-		int room_number = 777;
+		user.testMethod();
 		ArrayList<TimeSlot> time_slots = new ArrayList<TimeSlot>();
 		time_slots.add(new TimeSlot(7, 1, 8, 15));
 		time_slots.add(new TimeSlot(9, 15, 10, 15));
+		testCreateRoom(user, time_slots);
+		time_slots.add(new TimeSlot(11, 0, 14, 55));
+		testCreateRoom(user, time_slots);
+		testDeleteRoom(user);
+		
+	}
+	
+	public static void testCreateRoom(AdminUser user, ArrayList<TimeSlot> time_slots)
+	{
+		DateReservation date = new DateReservation("17-09-2017");
+		int room_number = 777;
 		try {
 			user.createRoom(room_number, date, time_slots);
 		} catch (RemoteException e) {

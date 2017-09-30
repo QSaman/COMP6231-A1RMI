@@ -31,6 +31,18 @@ public class Campus implements AdminUser, StudentUser, Serializable {
 	private String name;
 	HashMap<DateReservation, HashMap<Integer, ArrayList<TimeSlot>>> db;
 	private Object write_db_lock = new Object();
+	private abstract class DbOperations	//(key, vale), value = (sub_key, sub_value)
+	{
+		@SuppressWarnings("unused")
+		private HashMap<DateReservation, HashMap<Integer, ArrayList<TimeSlot>>> db;
+		public DbOperations(HashMap<DateReservation, HashMap<Integer, ArrayList<TimeSlot>>> db)
+		{
+			this.db = db;
+		}
+		public abstract void onNullValue();
+		public abstract void onNullSubValue(HashMap<Integer, ArrayList<TimeSlot>> val);
+		public abstract void onSubValue(HashMap<Integer, ArrayList<TimeSlot>> val, ArrayList<TimeSlot> sub_val);
+	}
 	
 	public Campus(String name)
 	{
@@ -67,78 +79,92 @@ public class Campus implements AdminUser, StudentUser, Serializable {
 		registry.rebind(camp_name + "_student", (StudentUser)stub);
 		System.out.println(camp_name + " bound");
 	}
-
-	@Override
-	public void createRoom(int room_number, DateReservation date, ArrayList<TimeSlot> time_intervals) throws RemoteException {
-		HashMap<Integer, ArrayList<TimeSlot>> val = null;
-		synchronized (write_db_lock) {
-			 val = db.get(date);
-			if (val == null)
-			{
-				val = new HashMap<Integer, ArrayList<TimeSlot>>();
-				val.put(room_number, time_intervals);				
-			}
-			else
-			{
-				ArrayList<TimeSlot> sub_val = val.get(room_number);
-				if (sub_val == null)
-					val.put(room_number, time_intervals);
-				else
-				{
-					for (TimeSlot time_slot : time_intervals)
-					{
-						boolean conflict = false;
-						for (TimeSlot cur : sub_val)
-							if (cur.conflict(time_slot))
-							{
-								conflict = true;
-								break;
-							}
-						if (!conflict)
-							sub_val.add(time_slot);
-					}
-					val.put(room_number, sub_val);
-				}
-			}
-			db.put(date, val);
-		}		
-		System.out.println(db);
-	}
-
-	@Override
-	public void deleteRoom(int room_number, DateReservation date, ArrayList<TimeSlot> time_slots) throws RemoteException {
+	
+	private void traverseDb(int room_number, DateReservation date, ArrayList<TimeSlot> time_slots, DbOperations db_ops)
+	{
 		HashMap<Integer, ArrayList<TimeSlot>> val = null;
 		synchronized (write_db_lock) {
 			val = db.get(date);
 			if (val == null)
+				db_ops.onNullValue();
+			else
 			{
-				System.out.println("val is null");
-				return;
+				ArrayList<TimeSlot> sub_val = val.get(room_number);
+				if (sub_val == null)
+					db_ops.onNullSubValue(val);
+				else
+					db_ops.onSubValue(val, sub_val);
 			}
-			ArrayList<TimeSlot> sub_val = val.get(room_number);
-			if (sub_val == null)
-			{
-				System.out.println("sub_val is null");
-				return;
-			}
-			ArrayList<TimeSlot> new_time_slots = new ArrayList<TimeSlot>(); 
-			for (TimeSlot val1 : sub_val)
-			{
-				boolean found = false;
-				for (TimeSlot val2 : time_slots)
-					if (val1.equals(val2))
-					{
-						found = true;
-						break;
-					}
-				if (!found)
-					new_time_slots.add(val1);
-			}
-			val.put(room_number, new_time_slots);
-			db.put(date, val);
+			System.out.println(db);
 		}
-		System.out.println(db);
-		
+	}
+
+	@Override
+	public void createRoom(int room_number, DateReservation date, ArrayList<TimeSlot> time_slots) throws RemoteException {
+		traverseDb(room_number, date, time_slots, new DbOperations(db) {
+			
+			@Override
+			public void onSubValue(HashMap<Integer, ArrayList<TimeSlot>> val, ArrayList<TimeSlot> sub_val) {
+				for (TimeSlot time_slot : time_slots)
+				{
+					boolean conflict = false;
+					for (TimeSlot cur : sub_val)
+						if (cur.conflict(time_slot))
+						{
+							conflict = true;
+							break;
+						}
+					if (!conflict)
+						sub_val.add(time_slot);
+				}
+				val.put(room_number, sub_val);
+				db.put(date, val);
+			}
+			
+			@Override
+			public void onNullValue() {
+				HashMap<Integer, ArrayList<TimeSlot>> val = new HashMap<Integer, ArrayList<TimeSlot>>();
+				val.put(room_number, time_slots);
+				db.put(date, val);
+			}
+			
+			@Override
+			public void onNullSubValue(HashMap<Integer, ArrayList<TimeSlot>> val) {
+				val.put(room_number, time_slots);
+				db.put(date, val);
+			}
+		});
+	}
+
+	@Override
+	public void deleteRoom(int room_number, DateReservation date, ArrayList<TimeSlot> time_slots) throws RemoteException {
+		traverseDb(room_number, date, time_slots, new DbOperations(db) {
+			
+			@Override
+			public void onSubValue(HashMap<Integer, ArrayList<TimeSlot>> val, ArrayList<TimeSlot> sub_val) {
+				ArrayList<TimeSlot> new_time_slots = new ArrayList<TimeSlot>(); 
+				for (TimeSlot val1 : sub_val)
+				{
+					boolean found = false;
+					for (TimeSlot val2 : time_slots)
+						if (val1.equals(val2))
+						{
+							found = true;
+							break;
+						}
+					if (!found)
+						new_time_slots.add(val1);
+				}
+				val.put(room_number, new_time_slots);
+				db.put(date, val);				
+			}
+			
+			@Override
+			public void onNullValue() {}
+			
+			@Override
+			public void onNullSubValue(HashMap<Integer, ArrayList<TimeSlot>> val) {}
+		});			
 	}
 
 	@Override
