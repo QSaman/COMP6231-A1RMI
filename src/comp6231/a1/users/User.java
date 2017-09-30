@@ -35,6 +35,8 @@ public class User {
 		AdminUser user = (AdminUser)registry.lookup("saman_admin");
 		user.testMethod();
 		testCreateRoom(user);
+		//testCreateRoom(user);
+		testDeleteRoom(user);
 	}
 	
 	public static void testCreateRoom(AdminUser user)
@@ -46,6 +48,20 @@ public class User {
 		time_slots.add(new TimeSlot(9, 15, 10, 15));
 		try {
 			user.createRoom(room_number, date, time_slots);
+		} catch (RemoteException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
+	
+	public static void testDeleteRoom(AdminUser user)
+	{
+		DateReservation date = new DateReservation("17-09-2017");
+		int room_number = 777;
+		ArrayList<TimeSlot> time_slots = new ArrayList<TimeSlot>();
+		time_slots.add(new TimeSlot(7, 1, 8, 15));
+		try {
+			user.deleteRoom(room_number, date, time_slots);
 		} catch (RemoteException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();

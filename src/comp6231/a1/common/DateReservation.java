@@ -4,12 +4,13 @@
 package comp6231.a1.common;
 
 import java.io.Serializable;
+import java.util.Calendar;
 
 /**
  * @author saman
  *
  */
-public class DateReservation implements Comparable<DateReservation>, Serializable {
+public class DateReservation implements /*Comparable<DateReservation>,*/ Serializable {
 
 	/**
 	 * 
@@ -29,12 +30,50 @@ public class DateReservation implements Comparable<DateReservation>, Serializabl
 		setDate(tmp[2], tmp[1], tmp[0]);
 	}
 	
+	
+	
+	/* (non-Javadoc)
+	 * @see java.lang.Object#hashCode()
+	 */
+	@Override
+	public int hashCode() {
+		final int prime = 31;
+		int result = 1;
+		result = prime * result + day;
+		result = prime * result + month;
+		result = prime * result + year;
+		return result;
+	}
+
+
+
+	/* (non-Javadoc)
+	 * @see java.lang.Object#equals(java.lang.Object)
+	 */
+	@Override
+	public boolean equals(Object obj) {
+		if (this == obj)
+			return true;
+		if (obj == null)
+			return false;
+		if (!(obj instanceof DateReservation))
+			return false;
+		DateReservation other = (DateReservation) obj;
+		if (day != other.day)
+			return false;
+		if (month != other.month)
+			return false;
+		if (year != other.year)
+			return false;
+		return true;
+	}
+
 	public DateReservation(int year, int month, int day)
 	{
 		setDate(year, month, day);
 	}
 
-	@Override
+/*	@Override
 	public int compareTo(DateReservation right) {
 		int delta = year - right.year;
 		if (delta != 0)
@@ -44,7 +83,7 @@ public class DateReservation implements Comparable<DateReservation>, Serializabl
 			return delta;
 		delta = day - right.day;
 		return delta;
-	}
+	}	*/
 	
 	private void setDate(int year, int month, int day)
 	{
@@ -69,23 +108,12 @@ public class DateReservation implements Comparable<DateReservation>, Serializabl
 		return year;
 	}
 
-	public void setYear(int year) {
-		this.year = year;
-	}
-
 	public int getMonth() {
 		return month;
-	}
-
-	public void setMonth(int month) {
-		this.month = month;
 	}
 
 	public int getDay() {
 		return day;
 	}
-
-	public void setDay(int day) {
-		this.day = day;
-	}	
+	
 }

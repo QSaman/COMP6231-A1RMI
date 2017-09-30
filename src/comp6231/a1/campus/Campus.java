@@ -30,6 +30,7 @@ public class Campus implements AdminUser, StudentUser, Serializable {
 	private static final long serialVersionUID = 1L;
 	private String name;
 	HashMap<DateReservation, HashMap<Integer, ArrayList<TimeSlot>>> db;
+	private Object write_db_lock = new Object();
 	
 	public Campus(String name)
 	{
@@ -69,42 +70,74 @@ public class Campus implements AdminUser, StudentUser, Serializable {
 
 	@Override
 	public void createRoom(int room_number, DateReservation date, ArrayList<TimeSlot> time_intervals) throws RemoteException {
-		HashMap<Integer, ArrayList<TimeSlot>> val = db.get(date);
-		if (val == null)
-		{
-			val = new HashMap<Integer, ArrayList<TimeSlot>>();
-			val.put(room_number, time_intervals);
-			db.put(date, val);
-		}
-		else
-		{
-			ArrayList<TimeSlot> sub_val = val.get(room_number);
-			if (sub_val == null)
-				val.put(room_number, time_intervals);
+		HashMap<Integer, ArrayList<TimeSlot>> val = null;
+		synchronized (write_db_lock) {
+			 val = db.get(date);
+			if (val == null)
+			{
+				val = new HashMap<Integer, ArrayList<TimeSlot>>();
+				val.put(room_number, time_intervals);				
+			}
 			else
 			{
-				for (TimeSlot time_slot : time_intervals)
+				ArrayList<TimeSlot> sub_val = val.get(room_number);
+				if (sub_val == null)
+					val.put(room_number, time_intervals);
+				else
 				{
-					boolean conflict = false;
-					for (TimeSlot cur : sub_val)
-						if (cur.conflict(time_slot))
-						{
-							conflict = true;
-							break;
-						}
-					if (!conflict)
-						sub_val.add(time_slot);
+					for (TimeSlot time_slot : time_intervals)
+					{
+						boolean conflict = false;
+						for (TimeSlot cur : sub_val)
+							if (cur.conflict(time_slot))
+							{
+								conflict = true;
+								break;
+							}
+						if (!conflict)
+							sub_val.add(time_slot);
+					}
+					val.put(room_number, sub_val);
 				}
-				val.put(room_number, sub_val);
 			}
 			db.put(date, val);
-		}
+		}		
 		System.out.println(db);
 	}
 
 	@Override
 	public void deleteRoom(int room_number, DateReservation date, ArrayList<TimeSlot> time_slots) throws RemoteException {
-		// TODO Auto-generated method stub
+		HashMap<Integer, ArrayList<TimeSlot>> val = null;
+		synchronized (write_db_lock) {
+			val = db.get(date);
+			if (val == null)
+			{
+				System.out.println("val is null");
+				return;
+			}
+			ArrayList<TimeSlot> sub_val = val.get(room_number);
+			if (sub_val == null)
+			{
+				System.out.println("sub_val is null");
+				return;
+			}
+			ArrayList<TimeSlot> new_time_slots = new ArrayList<TimeSlot>(); 
+			for (TimeSlot val1 : sub_val)
+			{
+				boolean found = false;
+				for (TimeSlot val2 : time_slots)
+					if (val1.equals(val2))
+					{
+						found = true;
+						break;
+					}
+				if (!found)
+					new_time_slots.add(val1);
+			}
+			val.put(room_number, new_time_slots);
+			db.put(date, val);
+		}
+		System.out.println(db);
 		
 	}
 

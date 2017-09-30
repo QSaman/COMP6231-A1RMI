@@ -4,6 +4,7 @@
 package comp6231.a1.common;
 
 import java.io.Serializable;
+import java.util.Arrays;
 
 /**
  * @author saman
@@ -54,6 +55,37 @@ public class TimeSlot implements Serializable {
 		return hour[0] + ":" + minute[0] + " - " + hour[1] + ":" + minute[1];
 	}
 	
+	/* (non-Javadoc)
+	 * @see java.lang.Object#hashCode()
+	 */
+	@Override
+	public int hashCode() {
+		final int prime = 31;
+		int result = 1;
+		result = prime * result + Arrays.hashCode(hour);
+		result = prime * result + Arrays.hashCode(minute);
+		return result;
+	}
+
+	/* (non-Javadoc)
+	 * @see java.lang.Object#equals(java.lang.Object)
+	 */
+	@Override
+	public boolean equals(Object obj) {
+		if (this == obj)
+			return true;
+		if (obj == null)
+			return false;
+		if (!(obj instanceof TimeSlot))
+			return false;
+		TimeSlot other = (TimeSlot) obj;
+		if (!Arrays.equals(hour, other.hour))
+			return false;
+		if (!Arrays.equals(minute, other.minute))
+			return false;
+		return true;
+	}
+
 	public boolean conflict(TimeSlot time_interval)
 	{
 		int[] external_time = new int[2];
