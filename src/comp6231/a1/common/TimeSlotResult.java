@@ -3,11 +3,17 @@
  */
 package comp6231.a1.common;
 
+import java.io.Serializable;
+
 /**
  * @author saman
  *
  */
-public class TimeSlotResult {
+public class TimeSlotResult implements Serializable {
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 1L;
 	private String campusName;
 	private int totalAvailableSlots;
 	

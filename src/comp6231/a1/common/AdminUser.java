@@ -14,7 +14,8 @@ import java.util.Calendar;
  */
 public interface AdminUser extends Remote {
 	
-	void createRoom(int room_number, Calendar date, ArrayList<TimeSlot> time_slots) throws RemoteException;
-	void deleteRoom(int room_number, Calendar date, ArrayList<TimeSlot> time_slots) throws RemoteException;
+	void createRoom(int room_number, DateReservation date, ArrayList<TimeSlot> time_slots) throws RemoteException;
+	void deleteRoom(int room_number, DateReservation date, ArrayList<TimeSlot> time_slots) throws RemoteException;
+	void testMethod() throws RemoteException;
 
 }

@@ -3,13 +3,20 @@
  */
 package comp6231.a1.common;
 
+import java.io.Serializable;
+
 /**
  * @author saman
  *
  */
-public class TimeSlot {
+public class TimeSlot implements Serializable {
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 1L;
 	private int[] hour;
 	private int[] minute;
+	private boolean booked;
 	
 	public TimeSlot(int hour1, int minute1, int hour2, int minute2)
 	{
@@ -31,6 +38,7 @@ public class TimeSlot {
 		minute = new int[2];
 		minute[0] = minute1;
 		minute[1] = minute2;
+		setBooked(false);
 	}
 	
 	public int getTime(int index)
@@ -38,6 +46,12 @@ public class TimeSlot {
 		if (index < 0 || index > 1)
 			throw new IllegalArgumentException("index should be between 0 and 1");
 		return hour[index] * 60 + minute[index];
+	}
+	
+	@Override
+	public String toString()
+	{
+		return hour[0] + ":" + minute[0] + " - " + hour[1] + ":" + minute[1];
 	}
 	
 	public boolean conflict(TimeSlot time_interval)
@@ -78,4 +92,11 @@ public class TimeSlot {
 		return minute[2];
 	}
 
+	public boolean isBooked() {
+		return booked;
+	}
+
+	public void setBooked(boolean booked) {
+		this.booked = booked;
+	}	
 }

@@ -14,8 +14,8 @@ import java.util.Calendar;
  */
 public interface StudentUser extends Remote {
 	
-	void bookRoom(String campus_name, int room_number, Calendar date, TimeSlot time_slot) throws RemoteException;
-	ArrayList<TimeSlotResult> getAvailableTimeSlot(Calendar date) throws RemoteException;
+	void bookRoom(String campus_name, int room_number, DateReservation date, TimeSlot time_slot) throws RemoteException;
+	ArrayList<TimeSlotResult> getAvailableTimeSlot(DateReservation date) throws RemoteException;
 	void cancelBooking(String bookingID) throws RemoteException;
 
 }
