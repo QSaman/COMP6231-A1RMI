@@ -17,9 +17,43 @@ public class TimeSlot implements Serializable {
 	private static final long serialVersionUID = 1L;
 	private int[] hour;
 	private int[] minute;
-	private boolean booked;
+	private String booking_id;
+	private String username;
 	
 	public TimeSlot(int hour1, int minute1, int hour2, int minute2)
+	{
+		initTimeSlot(hour1, minute1, hour2, minute2);
+	}
+	
+	public TimeSlot(String time_slot_str)
+	{
+		String[] tokens_str = time_slot_str.split("-");
+		if (tokens_str.length != 2)
+			throw new IllegalArgumentException(time_slot_str + " is not a valid time slot (hh:mm - hh:mm)");
+		int[][] time = new int[2][2];
+		for (int i = 0; i < 2; ++i)
+			time[i] = parseTime(tokens_str[i]);
+		initTimeSlot(time[0][0], time[0][1], time[1][0], time[1][1]);
+	}
+	/**
+	 * 
+	 * @param time Should be in "hh:mm" format
+	 * @return
+	 */
+	private int[] parseTime(String time_str)
+	{
+		String[] tokens = time_str.split(":");
+		if (tokens.length != 2)
+			throw new IllegalArgumentException(tokens[0] + " is not a valid time (hh:mm)");
+		int hour = Integer.parseInt(tokens[0].trim());
+		int minute = Integer.parseInt(tokens[1].trim());
+		int[] ret = new int[2];
+		ret[0] = hour;
+		ret[1] = minute;
+		return ret;
+	}
+	
+	private void initTimeSlot(int hour1, int minute1, int hour2, int minute2)
 	{
 		if (hour1< 0 || hour1 > 23)
 			throw new IllegalArgumentException(hour1 + " is invalid for hour");
@@ -39,7 +73,7 @@ public class TimeSlot implements Serializable {
 		minute = new int[2];
 		minute[0] = minute1;
 		minute[1] = minute2;
-		setBooked(false);
+		bookTimeSlot("",  "");
 	}
 	
 	public int getTime(int index)
@@ -103,6 +137,15 @@ public class TimeSlot implements Serializable {
 			return true;
 		return false;
 	}
+	public boolean isBooked() {
+		return !booking_id.isEmpty();
+	}
+	
+	public void bookTimeSlot(String username, String booking_id)
+	{
+		this.username = username;
+		this.booking_id = booking_id;
+	}
 	
 	int getHour1()
 	{
@@ -124,11 +167,18 @@ public class TimeSlot implements Serializable {
 		return minute[2];
 	}
 
-	public boolean isBooked() {
-		return booked;
+	/**
+	 * @return the booking_id
+	 */
+	public String getBookingId() {
+		return booking_id;
 	}
 
-	public void setBooked(boolean booked) {
-		this.booked = booked;
-	}	
+	/**
+	 * @return the username
+	 */
+	public String getUsername() {
+		return username;
+	}
+	
 }

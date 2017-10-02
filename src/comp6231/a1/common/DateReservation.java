@@ -101,7 +101,7 @@ public class DateReservation implements /*Comparable<DateReservation>,*/ Seriali
 	@Override
 	public String toString()
 	{
-		return "year: " + year + ", month: " + month + ", day: " + day;
+		return day + "-" + month + "-" + year;
 	}
 
 	public int getYear() {

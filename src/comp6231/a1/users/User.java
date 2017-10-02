@@ -3,16 +3,18 @@
  */
 package comp6231.a1.users;
 
+import java.io.IOException;
 import java.rmi.NotBoundException;
 import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 import java.util.ArrayList;
-import java.util.Calendar;
 
-import comp6231.a1.common.AdminUser;
 import comp6231.a1.common.DateReservation;
 import comp6231.a1.common.TimeSlot;
+import comp6231.a1.common.users.AdminOperations;
+import comp6231.a1.common.users.CampusUser;
+import comp6231.a1.common.users.StudentOperations;
 
 /**
  * @author saman
@@ -24,20 +26,31 @@ public class User {
 
 	/**
 	 * @param args
-	 * @throws RemoteException 
 	 * @throws NotBoundException 
+	 * @throws IOException 
 	 */
-	public static void main(String[] args) throws RemoteException, NotBoundException {
+	public static void main(String[] args) throws NotBoundException, IOException {
 		System.setProperty("java.security.policy", "file:./src/comp6231/security.policy");
 		if (System.getSecurityManager() == null)
 			System.setSecurityManager(new SecurityManager());
 		Registry registry = LocateRegistry.getRegistry();
-		AdminUser user = (AdminUser)registry.lookup("saman_admin");
+		AdminOperations user = (AdminOperations)registry.lookup("DVL");
 		test(user);
+		test((StudentOperations)user);
 	}
 	
-	public static void test(AdminUser user) throws RemoteException
+	public static void test(AdminOperations user) throws RemoteException
 	{
+		TimeSlot time_slot = new TimeSlot("7:10 - 20:32");
+		System.out.println(time_slot);
+		DateReservation date = new DateReservation("1-10-2017");
+		System.out.println(date);
+		
+		CampusUser user1 = new CampusUser("DVLS1111");
+		CampusUser user2 = new CampusUser("DVLA1111");
+		System.out.println(user1.getUserType() + " " + user1.getCampus());
+		System.out.println(user2.getUserType() + " " + user2.getCampus());
+		
 		user.testMethod();
 		ArrayList<TimeSlot> time_slots = new ArrayList<TimeSlot>();
 		time_slots.add(new TimeSlot(7, 1, 8, 15));
@@ -49,30 +62,47 @@ public class User {
 		
 	}
 	
-	public static void testCreateRoom(AdminUser user, ArrayList<TimeSlot> time_slots)
+	public static void test(StudentOperations user) throws NotBoundException, IOException
+	{
+		user.bookRoom("DVLS1111", "DVL", 777, new DateReservation("17-09-2017"), new TimeSlot("09:15 - 10:15"));
+		String bookd_id = user.bookRoom("DVLS1111", "DVL", 777, new DateReservation("17-09-2017"), new TimeSlot("09:15 - 10:15"));
+		if (bookd_id == null)
+			System.out.println("Correct");
+		else
+			System.out.println("Incorrect");
+		bookd_id = user.bookRoom("DVLS1111", "DVL", 777, new DateReservation("17-09-2017"), new TimeSlot("12:15 - 14:15"));
+		if (bookd_id == null)
+			System.out.println("Correct");
+		else
+			System.out.println("Incorrect");
+		Registry registry = LocateRegistry.getRegistry();
+		user = (StudentOperations)registry.lookup("KKL");
+		user.bookRoom("KKLS1111", "DVL", 777, new DateReservation("17-09-2017"), new TimeSlot("11:00 - 14:55"));
+	}
+	
+	public static void testCreateRoom(AdminOperations user, ArrayList<TimeSlot> time_slots)
 	{
 		DateReservation date = new DateReservation("17-09-2017");
 		int room_number = 777;
 		try {
-			user.createRoom(room_number, date, time_slots);
+			user.createRoom("DVLA1111", room_number, date, time_slots);
 		} catch (RemoteException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 	}
 	
-	public static void testDeleteRoom(AdminUser user)
+	public static void testDeleteRoom(AdminOperations user)
 	{
 		DateReservation date = new DateReservation("17-09-2017");
 		int room_number = 777;
 		ArrayList<TimeSlot> time_slots = new ArrayList<TimeSlot>();
 		time_slots.add(new TimeSlot(7, 1, 8, 15));
 		try {
-			user.deleteRoom(room_number, date, time_slots);
+			user.deleteRoom("DVLA1111", room_number, date, time_slots);
 		} catch (RemoteException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 	}
-
 }
