@@ -28,8 +28,9 @@ public class User {
 	 * @param args
 	 * @throws NotBoundException 
 	 * @throws IOException 
+	 * @throws InterruptedException 
 	 */
-	public static void main(String[] args) throws NotBoundException, IOException {
+	public static void main(String[] args) throws NotBoundException, IOException, InterruptedException {
 		System.setProperty("java.security.policy", "file:./src/comp6231/security.policy");
 		if (System.getSecurityManager() == null)
 			System.setSecurityManager(new SecurityManager());
@@ -62,7 +63,7 @@ public class User {
 		
 	}
 	
-	public static void test(StudentOperations user) throws NotBoundException, IOException
+	public static void test(StudentOperations user) throws NotBoundException, IOException, InterruptedException
 	{
 		user.bookRoom("DVLS1111", "DVL", 777, new DateReservation("17-09-2017"), new TimeSlot("09:15 - 10:15"));
 		String bookd_id = user.bookRoom("DVLS1111", "DVL", 777, new DateReservation("17-09-2017"), new TimeSlot("09:15 - 10:15"));
@@ -77,7 +78,8 @@ public class User {
 			System.out.println("Incorrect");
 		Registry registry = LocateRegistry.getRegistry();
 		user = (StudentOperations)registry.lookup("KKL");
-		user.bookRoom("KKLS1111", "DVL", 777, new DateReservation("17-09-2017"), new TimeSlot("11:00 - 14:55"));
+		String booking_id = user.bookRoom("KKLS1111", "DVL", 777, new DateReservation("17-09-2017"), new TimeSlot("11:00 - 14:55"));
+		System.out.println("udp server booking id: " + booking_id);
 	}
 	
 	public static void testCreateRoom(AdminOperations user, ArrayList<TimeSlot> time_slots)

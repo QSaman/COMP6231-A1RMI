@@ -7,16 +7,12 @@ import java.io.IOException;
 import java.io.Serializable;
 import java.net.InetAddress;
 import java.net.SocketException;
-import java.net.UnknownHostException;
-import java.rmi.AccessException;
 import java.rmi.NotBoundException;
 import java.rmi.Remote;
 import java.rmi.RemoteException;
-import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 import java.rmi.server.UnicastRemoteObject;
 import java.util.ArrayList;
-import java.util.Calendar;
 import java.util.HashMap;
 
 import comp6231.a1.common.DateReservation;
@@ -261,7 +257,7 @@ public class Campus implements AdminOperations, StudentOperations, CampusOperati
 
 	@Override
 	public String bookRoom(String user_id, String campus_name, int room_number, DateReservation date, TimeSlot time_slot)
-			throws RemoteException, NotBoundException, IOException {
+			throws RemoteException, NotBoundException, IOException, InterruptedException {
 		CampusUser user = new CampusUser(user_id);
 		String booking_id = null;
 		if (!user.isStudent())
@@ -289,6 +285,12 @@ public class Campus implements AdminOperations, StudentOperations, CampusOperati
 			int msg_id = MessageProtocol.generateMessageId();
 			byte[] send_msg = MessageProtocol.encodeBookRoomMessage(msg_id, user_id, room_number, date, time_slot);
 			sendMessage(send_msg, campus_name);
+			UdpServer.BookRoomObject wait_object = udp_server.new BookRoomObject(); 
+			udp_server.addToWaitList(msg_id, wait_object);
+			synchronized (wait_object) {
+				wait_object.wait();
+			}			
+			booking_id = wait_object.bookingId;
 		}
 		return booking_id;
 	}

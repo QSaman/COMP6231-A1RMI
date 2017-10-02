@@ -10,6 +10,7 @@ import java.net.InetAddress;
 import java.net.SocketException;
 import java.rmi.NotBoundException;
 import java.rmi.RemoteException;
+import java.util.HashMap;
 
 import comp6231.a1.common.DateReservation;
 import comp6231.a1.common.TimeSlot;
@@ -20,15 +21,32 @@ import comp6231.a1.common.TimeSlot;
  *
  */
 public class UdpServer extends Thread {
+	public class BookRoomObject
+	{
+		public String bookingId;
+	}
 	private Campus campus;
 	private DatagramSocket socket;	//https://stackoverflow.com/questions/6265731/do-java-sockets-support-full-duplex
-	private Object write_socket_lock = new Object();
+	private final Object write_socket_lock = new Object();
 	public final static int datagram_send_size = 256;
+	private HashMap<Integer, BookRoomObject> wait_list;
+	private final Object wait_list_lock = new Object();
 	
 	public UdpServer(Campus campus) throws SocketException, RemoteException
 	{
 		this.campus = campus;
 		socket = new DatagramSocket(this.campus.getPort());
+		wait_list = new HashMap<Integer, BookRoomObject>();
+	}
+	
+	public void addToWaitList(int message_id, BookRoomObject wait_object)
+	{
+		Object obj = wait_list.get(message_id);
+		if (obj != null)
+			throw new IllegalArgumentException("message id is mapped to another object");
+		synchronized (wait_list_lock) {
+			wait_list.put(message_id, wait_object);
+		}		
 	}
 	
 	private void processRequest(byte[] message, InetAddress address, int port)
@@ -52,10 +70,26 @@ public class UdpServer extends Thread {
 			} catch (NotBoundException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
+			} catch (InterruptedException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
 			}
 			break;
 		case Book_Room_Response:
 			System.out.println("Booked_id received: " + protocol.getBookingId());
+			BookRoomObject obj = wait_list.get(protocol.getMessageId());
+			if (obj == null)
+			{
+				System.out.println("Duplicate message recieived with id " + protocol.getMessageId());
+				return;
+			}
+			obj.bookingId = protocol.getBookingId();
+			synchronized (obj) {
+				obj.notifyAll();
+			}			
+			synchronized (wait_list_lock) {
+				wait_list.remove(protocol.getMessageId());
+			}
 			break;
 		}
 	}
