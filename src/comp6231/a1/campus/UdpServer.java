@@ -106,6 +106,7 @@ public class UdpServer extends Thread {
 			}
 			break;
 		case Cancel_Book_Room_Response:
+			System.out.println("UDP server Cancel booking receivend: " + protocol.getStatus());
 			synchronized (wait_list_lock) {
 				 obj = wait_list.get(protocol.getMessageId());
 				if (obj == null)

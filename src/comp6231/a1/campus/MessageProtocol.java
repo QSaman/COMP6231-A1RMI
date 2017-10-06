@@ -118,7 +118,8 @@ public class MessageProtocol {
 		String status_str = (status ? "success" : "failed");
 		StringBuilder sb = new StringBuilder();
 		sb.append(MessageType.Cancel_Book_Room_Response).append(delimiter).append(message_id).append(delimiter).append(status_str);
-		return null;
+		System.out.println("Encoded message: " + sb.toString());
+		return sb.toString().getBytes();
 	}
 	
 	public void decodeCancelBookRoomResponseMessage(String[] tokens)

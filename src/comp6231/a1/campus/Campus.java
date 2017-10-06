@@ -454,7 +454,7 @@ public class Campus implements AdminOperations, StudentOperations, CampusOperati
 			@Override
 			public boolean onOperationOnThisCampus(ArrayList<TimeSlot> time_slots) {
 				for (TimeSlot time_slot : time_slots)
-					if (time_slot.getBookingId().equals(bookingID) && time_slot.getUsername() == user_id)
+					if (time_slot.getBookingId().equals(bookingID) && time_slot.getUsername().equals(user_id))
 					{
 						time_slot.cancelTimeSlot();
 						return true;
@@ -478,7 +478,7 @@ public class Campus implements AdminOperations, StudentOperations, CampusOperati
 			}
 			
 			@Override
-			public StudentRecord onNullUserRecord(CampusUser user) {return null;}
+			public StudentRecord onNullUserRecord(CampusUser user) {_status = false; return null;}
 			
 			@Override
 			public ArrayList<TimeSlot> findTimeSlots() {				

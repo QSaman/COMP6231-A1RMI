@@ -76,10 +76,35 @@ public class User {
 			System.out.println("Correct");
 		else
 			System.out.println("Incorrect");
+		boolean status = user.cancelBooking("DVLS1112", "DVL@17-9-2017@777#1");
+		if (status)
+			System.out.println("cancel booking incorrect");
+		else
+			System.out.println("cancel booking correct");
+		status = user.cancelBooking("DVLS1111", "DVL@17-9-2017@777#1");
+		if (status)
+			System.out.println("cancel booking correct");
+		else
+			System.out.println("cancel booking incorrect");
 		Registry registry = LocateRegistry.getRegistry();
 		user = (StudentOperations)registry.lookup("KKL");
 		String booking_id = user.bookRoom("KKLS1111", "DVL", 777, new DateReservation("17-09-2017"), new TimeSlot("11:00 - 14:55"));
 		System.out.println("udp server booking id: " + booking_id);
+		status = user.cancelBooking("KKLS2111", "DVL@17-9-2017@777#2");
+		if (status)
+			System.out.println("cancel booking incorrect");
+		else
+			System.out.println("cancel booking correct");
+		status = user.cancelBooking("KKLS1111", "DVL@17-9-2017@877#2");
+		if (status)
+			System.out.println("cancel booking incorrect");
+		else
+			System.out.println("cancel booking correct");
+		status = user.cancelBooking("KKLS1111", "DVL@17-9-2017@777#2");
+		if (status)
+			System.out.println("cancel booking correct");
+		else
+			System.out.println("cancel booking incorrect");
 	}
 	
 	public static void testCreateRoom(AdminOperations user, ArrayList<TimeSlot> time_slots)
