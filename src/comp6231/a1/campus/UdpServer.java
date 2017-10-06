@@ -21,25 +21,26 @@ import comp6231.a1.common.TimeSlot;
  *
  */
 public class UdpServer extends Thread {
-	public class BookRoomObject
+	public class WaitObject
 	{
 		public String bookingId;
+		public boolean status;
 	}
 	private Campus campus;
 	private DatagramSocket socket;	//https://stackoverflow.com/questions/6265731/do-java-sockets-support-full-duplex
 	private final Object write_socket_lock = new Object();
 	public final static int datagram_send_size = 256;
-	private HashMap<Integer, BookRoomObject> wait_list;
+	private HashMap<Integer, WaitObject> wait_list;
 	private final Object wait_list_lock = new Object();
 	
 	public UdpServer(Campus campus) throws SocketException, RemoteException
 	{
 		this.campus = campus;
 		socket = new DatagramSocket(this.campus.getPort());
-		wait_list = new HashMap<Integer, BookRoomObject>();
+		wait_list = new HashMap<Integer, WaitObject>();
 	}
 	
-	public void addToWaitList(int message_id, BookRoomObject wait_object)
+	public void addToWaitList(int message_id, WaitObject wait_object)
 	{
 		Object obj = wait_list.get(message_id);
 		if (obj != null)
@@ -54,6 +55,7 @@ public class UdpServer extends Thread {
 		System.out.println("Received message from " + address + ":" + port);
 		MessageProtocol protocol = new MessageProtocol();
 		MessageProtocol.MessageType type = protocol.decodeMessage(message);
+		WaitObject obj = null;
 		switch(type)
 		{
 		case Book_Room:
@@ -76,17 +78,46 @@ public class UdpServer extends Thread {
 			}
 			break;
 		case Book_Room_Response:
-			System.out.println("Booked_id received: " + protocol.getBookingId());
-			BookRoomObject obj = wait_list.get(protocol.getMessageId());
-			if (obj == null)
-			{
-				System.out.println("Duplicate message recieived with id " + protocol.getMessageId());
-				return;
+			System.out.println("Booked_id received: " + protocol.getBookingId());			
+			synchronized (wait_list_lock) {
+				 obj = wait_list.get(protocol.getMessageId());
+				if (obj == null)
+				{
+					System.out.println("Duplicate message recieived with id " + protocol.getMessageId());
+					return;
+				}
 			}
 			obj.bookingId = protocol.getBookingId();
 			synchronized (obj) {
 				obj.notifyAll();
 			}			
+			synchronized (wait_list_lock) {
+				wait_list.remove(protocol.getMessageId());
+			}
+			break;
+		case Cancel_Book_Room:
+			try {
+				boolean status = campus.cancelBooking(protocol.getUserId(), protocol.getBookingId());
+				byte[] reply = MessageProtocol.encodeCancelBookRoomResponseMessage(protocol.getMessageId(), status);
+				sendDatagram(reply, address, port);
+			} catch (NotBoundException | IOException | InterruptedException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+			break;
+		case Cancel_Book_Room_Response:
+			synchronized (wait_list_lock) {
+				 obj = wait_list.get(protocol.getMessageId());
+				if (obj == null)
+				{
+					System.out.println("Duplicate message recieived with id " + protocol.getMessageId());
+					return;
+				}
+			}
+			obj.status = protocol.getStatus();
+			synchronized (obj) {
+				obj.notifyAll();
+			}
 			synchronized (wait_list_lock) {
 				wait_list.remove(protocol.getMessageId());
 			}

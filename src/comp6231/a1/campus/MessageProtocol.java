@@ -22,11 +22,14 @@ public class MessageProtocol {
 	private int room_numer;
 	private DateReservation date;
 	private TimeSlot time_slot;
+	private boolean status;
 	
 	enum MessageType
 	{
 		Book_Room,
 		Book_Room_Response,
+		Cancel_Book_Room,
+		Cancel_Book_Room_Response
 	}
 	
 	public static int generateMessageId()
@@ -92,6 +95,40 @@ public class MessageProtocol {
 		booking_id = tokens[3].trim();
 	}
 	
+	public static byte[] encodeCancelBookRoomMessage(int message_id, String user_id, String booking_id)
+	{
+		StringBuilder sb = new StringBuilder();
+		sb.append(MessageType.Cancel_Book_Room.toString()).append(delimiter).append(message_id).append(delimiter);
+		sb.append(user_id).append(delimiter).append(booking_id);
+		System.out.println("Encoded message: " + sb.toString());
+		return sb.toString().getBytes();
+	}
+	
+	public void decodeCancelBookRoomMessage(String[] tokens)
+	{
+		if (tokens.length != 4)
+			throw new IllegalArgumentException("The number of message tokens are not 4");
+		message_id = Integer.parseInt(tokens[1].trim());
+		user_id = tokens[2].trim();
+		booking_id = tokens[3].trim();
+	}
+	
+	public static byte[] encodeCancelBookRoomResponseMessage(int message_id, boolean status)
+	{
+		String status_str = (status ? "success" : "failed");
+		StringBuilder sb = new StringBuilder();
+		sb.append(MessageType.Cancel_Book_Room_Response).append(delimiter).append(message_id).append(delimiter).append(status_str);
+		return null;
+	}
+	
+	public void decodeCancelBookRoomResponseMessage(String[] tokens)
+	{
+		if (tokens.length != 3)
+			throw new IllegalArgumentException("The number of tokens should be 3");
+		message_id = Integer.parseInt(tokens[1].trim());
+		status = (tokens[2].trim().equals("success") ? true : false);
+	}
+	
 	public MessageType decodeMessage(byte[] message)
 	{
 		String str = new String(message);
@@ -106,6 +143,12 @@ public class MessageProtocol {
 			break;
 		case Book_Room_Response:
 			decodeBookRoomResponseMessage(tokens);
+			break;
+		case Cancel_Book_Room:
+			decodeCancelBookRoomMessage(tokens);
+			break;
+		case Cancel_Book_Room_Response:
+			decodeCancelBookRoomResponseMessage(tokens);
 			break;
 		default:
 			throw new IllegalArgumentException("Invalid response message type: " + msg_type);
@@ -148,6 +191,11 @@ public class MessageProtocol {
 	 */
 	public TimeSlot getTimeSlot() {
 		return time_slot;
+	}
+	
+	public boolean getStatus()
+	{
+		return status;
 	}
 	
 }

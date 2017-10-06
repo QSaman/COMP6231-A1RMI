@@ -51,7 +51,7 @@ public class StudentRecord {
 		}		
 	}
 	
-	ArrayList<ReservationRecord> records;
+	private ArrayList<ReservationRecord> records;
 	private CampusUser user;
 	
 	
@@ -99,18 +99,36 @@ public class StudentRecord {
 		this.user = user;
 	}
 	
-	public void saveBookRoomRequest(String booking_id, DateReservation date, TimeSlot time_slot)
+	public synchronized void saveBookRoomRequest(String booking_id, DateReservation date, TimeSlot time_slot)
 	{
-		records.add(new ReservationRecord(booking_id, date, time_slot));
+			records.add(new ReservationRecord(booking_id, date, time_slot));		
 	}
 	
-	public boolean canBook()
+	public synchronized boolean removeBookRoomRequest(String booking_id)
 	{
-		return records.size() < 3;
+		for (int i = 0; i < records.size(); ++i)
+		{
+			if (records.get(i).booking_id.equals(booking_id))
+			{
+				records.remove(i);
+				return true;
+			}
+		}
+		return false;
 	}
 	
-	//TODO The question is ambigious
-	public void removeOldRecords(DateReservation date, TimeSlot time_slot)
+	public synchronized boolean canBook()
 	{
+			return records.size() < 3;
+	}
+	
+	public synchronized TimeSlot findTimeSlot(String booking_id)
+	{			
+		for (ReservationRecord record : records)
+			if (record.booking_id.equals(booking_id))
+			{
+				return record.time_slot;
+			}
+		return null;
 	}
 }

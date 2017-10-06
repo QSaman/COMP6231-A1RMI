@@ -65,7 +65,7 @@ public class User {
 	
 	public static void test(StudentOperations user) throws NotBoundException, IOException, InterruptedException
 	{
-		user.bookRoom("DVLS1111", "DVL", 777, new DateReservation("17-09-2017"), new TimeSlot("09:15 - 10:15"));
+		System.out.println(user.bookRoom("DVLS1111", "DVL", 777, new DateReservation("17-09-2017"), new TimeSlot("09:15 - 10:15")));
 		String bookd_id = user.bookRoom("DVLS1111", "DVL", 777, new DateReservation("17-09-2017"), new TimeSlot("09:15 - 10:15"));
 		if (bookd_id == null)
 			System.out.println("Correct");

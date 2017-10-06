@@ -147,6 +147,12 @@ public class TimeSlot implements Serializable {
 		this.booking_id = booking_id;
 	}
 	
+	public void cancelTimeSlot()
+	{
+		this.username = "";
+		this.booking_id = "";
+	}
+	
 	int getHour1()
 	{
 		return hour[0];

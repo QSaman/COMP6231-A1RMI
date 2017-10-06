@@ -34,30 +34,14 @@ public class Campus implements AdminOperations, StudentOperations, CampusOperati
 	private String name;
 	private Registry registry;
 	private HashMap<DateReservation, HashMap<Integer, ArrayList<TimeSlot>>> db;
+	private final Object date_db_lock = new Object();
+	private final Object room_db_lock = new Object();
 	private HashMap<String, StudentRecord> student_db;
-	private static int booking_id_number = 0;
-	private static final Object booking_id_number_lock = new Object();
+	private final Object write_student_db_lock = new Object();		
 	private String address;	//The address of this server
-	private int port;	//The UDP listening port of this server
-	private Object write_db_lock = new Object();
+	private int port;	//The UDP listening port of this server	
 	private UdpServer udp_server;
-	
-	private abstract class DbOperations	//(key, vale), value = (sub_key, sub_value)
-	{
-		@SuppressWarnings("unused")
-		private HashMap<DateReservation, HashMap<Integer, ArrayList<TimeSlot>>> db;
-		protected boolean operation_status;
-		public DbOperations(HashMap<DateReservation, HashMap<Integer, ArrayList<TimeSlot>>> db)
-		{
-			this.db = db;
-			operation_status = true;
-		}
-		public abstract void onNullValue();
-		public abstract void onNullSubValue(HashMap<Integer, ArrayList<TimeSlot>> val);
-		public abstract void onSubValue(HashMap<Integer, ArrayList<TimeSlot>> val, ArrayList<TimeSlot> sub_val);
-		public abstract TimeSlot searchTimeSlot(ArrayList<TimeSlot> sub_val);
-	}
-	
+		
 	public Campus(String name, Registry registry, String address, int port) throws SocketException, RemoteException
 	{
 		this.name = name;
@@ -99,28 +83,58 @@ public class Campus implements AdminOperations, StudentOperations, CampusOperati
 
 	}
 	
-	private TimeSlot traverseDb(int room_number, DateReservation date, ArrayList<TimeSlot> time_slots, DbOperations db_ops)
+	private abstract class DbOperations	//(key, vale), value = (sub_key, sub_value)
+	{
+		@SuppressWarnings("unused")
+		private HashMap<DateReservation, HashMap<Integer, ArrayList<TimeSlot>>> _db;
+		protected boolean _operation_status;
+		protected TimeSlot _time_slot;
+		protected ArrayList<TimeSlot> _time_slots;
+		
+		public DbOperations(HashMap<DateReservation, HashMap<Integer, ArrayList<TimeSlot>>> db)
+		{
+			this._db = db;
+			_operation_status = true;
+		}
+		//All the following methods are thread-safe for campus time slots database
+		public abstract HashMap<Integer, ArrayList<TimeSlot>> onNullValue();
+		public abstract ArrayList<TimeSlot> onNullSubValue(HashMap<Integer, ArrayList<TimeSlot>> val);
+		public abstract void onSubValue(ArrayList<TimeSlot> sub_val);
+	}
+	
+	private void traverseDb(int room_number, DateReservation date, DbOperations db_ops)
 	{
 		HashMap<Integer, ArrayList<TimeSlot>> val = null;
-		TimeSlot ret = null;
-		synchronized (write_db_lock) {
+		//https://stackoverflow.com/questions/11050539/using-hashmap-in-multithreaded-environment:
+		//https://stackoverflow.com/questions/2688629/is-a-hashmap-thread-safe-for-different-keys:
+		//The get() goes to an infinite loop because one of the threads has only a partially updated 
+		//view of the HashMap in memory and there must be some sort of pointer loop
+		synchronized (date_db_lock) {
 			val = db.get(date);
 			if (val == null)
-				db_ops.onNullValue();
-			else
 			{
-				ArrayList<TimeSlot> sub_val = val.get(room_number);
-				if (sub_val == null)
-					db_ops.onNullSubValue(val);
-				else
-				{
-					db_ops.onSubValue(val, sub_val);
-					ret = db_ops.searchTimeSlot(sub_val);
-				}
+				val = db_ops.onNullValue();
+				if (val == null)
+					return;
+				db.put(date, val);
 			}
-			System.out.println(db);
+		}		
+
+		ArrayList<TimeSlot> sub_val = null;
+		synchronized (room_db_lock) {
+			 sub_val = val.get(room_number);
+			 if (sub_val == null)
+			 {
+				 sub_val = db_ops.onNullSubValue(val);
+				 if (sub_val == null)
+					 return;
+				 val.put(room_number, sub_val);
+			 }
 		}
-		return ret;
+		synchronized (sub_val) {
+			db_ops.onSubValue(sub_val);
+		}				
+		System.out.println(db);
 	}
 
 	@Override
@@ -128,10 +142,10 @@ public class Campus implements AdminOperations, StudentOperations, CampusOperati
 		CampusUser user = new CampusUser(user_id);
 		if (!user.isAdmin())
 			return false;
-		traverseDb(room_number, date, time_slots, new DbOperations(db) {
+		traverseDb(room_number, date, new DbOperations(db) {
 			
 			@Override
-			public void onSubValue(HashMap<Integer, ArrayList<TimeSlot>> val, ArrayList<TimeSlot> sub_val) {
+			public void onSubValue(ArrayList<TimeSlot> sub_val) {
 				for (TimeSlot time_slot : time_slots)
 				{
 					boolean conflict = false;
@@ -142,27 +156,21 @@ public class Campus implements AdminOperations, StudentOperations, CampusOperati
 							break;
 						}
 					if (!conflict)
-						sub_val.add(time_slot);
+						sub_val.add(time_slot);						
 				}
-				val.put(room_number, sub_val);
-				db.put(date, val);
 			}
 			
 			@Override
-			public void onNullValue() {
+			public HashMap<Integer, ArrayList<TimeSlot>> onNullValue() {
 				HashMap<Integer, ArrayList<TimeSlot>> val = new HashMap<Integer, ArrayList<TimeSlot>>();
 				val.put(room_number, time_slots);
-				db.put(date, val);
+				return val;
 			}
 			
 			@Override
-			public void onNullSubValue(HashMap<Integer, ArrayList<TimeSlot>> val) {
-				val.put(room_number, time_slots);
-				db.put(date, val);
+			public ArrayList<TimeSlot> onNullSubValue(HashMap<Integer, ArrayList<TimeSlot>> val) {				
+				return time_slots;
 			}
-
-			@Override
-			public TimeSlot searchTimeSlot(ArrayList<TimeSlot> sub_val) { return null; }
 		});
 		return true;
 	}
@@ -176,7 +184,7 @@ public class Campus implements AdminOperations, StudentOperations, CampusOperati
 		DbOperations ops = new DbOperations(db) {
 			
 			@Override
-			public void onSubValue(HashMap<Integer, ArrayList<TimeSlot>> val, ArrayList<TimeSlot> sub_val) {
+			public void onSubValue(ArrayList<TimeSlot> sub_val) {
 				ArrayList<TimeSlot> new_time_slots = new ArrayList<TimeSlot>(); 
 				for (TimeSlot val1 : sub_val)
 				{
@@ -190,61 +198,69 @@ public class Campus implements AdminOperations, StudentOperations, CampusOperati
 					if (!found)
 						new_time_slots.add(val1);
 				}
-				val.put(room_number, new_time_slots);
-				db.put(date, val);				
+				//Since we use sub_val as a lock object (see create room method), we couldn't simply use val.put(room_number, new_time_slots)
+				sub_val.clear();
+				for (TimeSlot value : new_time_slots)
+					sub_val.add(value);
 			}
 			
 			@Override
-			public void onNullValue() {operation_status = false;}
+			public HashMap<Integer, ArrayList<TimeSlot>> onNullValue() {_operation_status = false; return null;}
 			
 			@Override
-			public void onNullSubValue(HashMap<Integer, ArrayList<TimeSlot>> val) {operation_status = false;}
-
-			@Override
-			public TimeSlot searchTimeSlot(ArrayList<TimeSlot> sub_val) { return null; }
+			public ArrayList<TimeSlot> onNullSubValue(HashMap<Integer, ArrayList<TimeSlot>> val) {_operation_status = false; return null;}
 		};
 		
-		traverseDb(room_number, date, time_slots, ops);
-		return ops.operation_status;
+		traverseDb(room_number, date, ops);
+		return ops._operation_status;
 	}
 	
-	private String generateBookingId()
-	{
-		synchronized (booking_id_number_lock) {
-			++booking_id_number;
-		}
-		return getName() + "#" + booking_id_number;
-	}
-	
-	private TimeSlot isTimeSlotAvailable(int room_number, DateReservation date, TimeSlot time_slot)
+	/**
+	 * 
+	 * @param room_number
+	 * @param date
+	 * @param time_slot
+	 * @return TimeSlot or null if it's not available
+	 */
+	private TimeSlot findTimeSlot(int room_number, DateReservation date, TimeSlot time_slot)
 	{
 		DbOperations ops = new DbOperations(db) {
 			
 			@Override
-			public void onSubValue(HashMap<Integer, ArrayList<TimeSlot>> val, ArrayList<TimeSlot> sub_val) {
-			}
+			public HashMap<Integer, ArrayList<TimeSlot>> onNullValue() {return null;}
 			
 			@Override
-			public void onNullValue() {}
-			
-			@Override
-			public void onNullSubValue(HashMap<Integer, ArrayList<TimeSlot>> val) {}
+			public ArrayList<TimeSlot> onNullSubValue(HashMap<Integer, ArrayList<TimeSlot>> val) {return null;}
 
 			@Override
-			public TimeSlot searchTimeSlot(ArrayList<TimeSlot> sub_val) {
-				TimeSlot ret = null;
+			public void onSubValue(ArrayList<TimeSlot> sub_val) {
 				for (TimeSlot ts : sub_val)
-					if (ts.equals(time_slot) && !ts.isBooked())
+					if (ts.equals(time_slot))
 					{
-						ret = ts;
+						_time_slot = ts;
 						break;
-					}
-				return ret;
+					}		
 			}
 		};
-		ArrayList<TimeSlot> tmp = new ArrayList<TimeSlot>();
-		tmp.add(time_slot);
-		return traverseDb(room_number, date, tmp, ops);
+		traverseDb(room_number, date, ops);
+		return ops._time_slot;
+	}
+	
+	private ArrayList<TimeSlot> findTimeSlots(int room_number, DateReservation date)
+	{
+		DbOperations ops = new DbOperations(db) {			
+			
+			@Override
+			public void onSubValue(ArrayList<TimeSlot> sub_val) {_time_slots = sub_val;}
+			
+			@Override
+			public HashMap<Integer, ArrayList<TimeSlot>> onNullValue() {return null;}
+			
+			@Override
+			public ArrayList<TimeSlot> onNullSubValue(HashMap<Integer, ArrayList<TimeSlot>> val) { return null;}
+		};
+		traverseDb(room_number, date, ops);
+		return ops._time_slots;
 	}
 	
 	private void sendMessage(byte[] message, String campus_name) throws NotBoundException, IOException
@@ -254,45 +270,161 @@ public class Campus implements AdminOperations, StudentOperations, CampusOperati
 		int port = ops.getPort();
 		udp_server.sendDatagram(message, address, port);
 	}
+	
+	private boolean userBelongHere(CampusUser user)
+	{
+		return user.getCampus().equals(getName());
+	}
+	
+	private abstract class UserDbOperations
+	{
+		protected CampusUser _user;
+		public String _booking_id;
+		@SuppressWarnings("unused")
+		protected HashMap<String, StudentRecord> _student_db;
+		protected boolean _status;
+		
+		public UserDbOperations(HashMap<String, StudentRecord> student_db, CampusUser user) 
+		{
+			this._user = user;
+			this._student_db = student_db;
+			_booking_id = null;
+			_status = true;
+		}
+		
+		//All the following methods are tread-safe for user database
+		public abstract boolean onUserBelongHere(StudentRecord record);
+		public abstract StudentRecord onNullUserRecord(CampusUser user);
+		public abstract boolean onOperationOnThisCampus(ArrayList<TimeSlot> time_slots);
+		public abstract void onOperationOnOtherCampus(int message_id) throws NotBoundException, IOException, InterruptedException;
+		public abstract void onPostUserBelongHere(StudentRecord record);
+		public abstract ArrayList<TimeSlot> findTimeSlots();
+	}
 
+	private void traverseStudentDb(UserDbOperations user_db_ops, CampusUser user, String campus_name) throws NotBoundException, IOException, InterruptedException
+	{
+		
+		//String booking_id = null;
+		StudentRecord record = null;
+		
+		if (userBelongHere(user))
+		{
+			synchronized (write_student_db_lock) {
+				record = student_db.get(user.getUserId());
+				if (record == null && (record = user_db_ops.onNullUserRecord(user)) == null)
+					return;
+				student_db.put(user.getUserId(), record);
+			}
+			synchronized (record) {			
+				if (!user_db_ops.onUserBelongHere(record))
+					return;
+				
+				if (campus_name.equals(getName()))
+				{
+					ArrayList<TimeSlot> time_slots = user_db_ops.findTimeSlots();
+					if (time_slots == null)
+						return;
+					synchronized (time_slots) {
+						if (!user_db_ops.onOperationOnThisCampus(time_slots))
+							return;
+					}
+				}
+				else
+				{
+					int msg_id = MessageProtocol.generateMessageId();
+					user_db_ops.onOperationOnOtherCampus(msg_id);
+				}
+				user_db_ops.onPostUserBelongHere(record);
+			}
+		}
+		else if (campus_name.equals(getName()))//We received booking request from another campus
+		{
+			ArrayList<TimeSlot> time_slots = user_db_ops.findTimeSlots();
+			if (time_slots == null)
+				return;
+			synchronized (time_slots) {
+				user_db_ops.onOperationOnThisCampus(time_slots);
+			}			
+		}
+		else
+			throw new IllegalArgumentException("The sender campus send the message to the wrong campus: (" + campus_name + ", " + getName() + ")");
+	}
+	
 	@Override
 	public String bookRoom(String user_id, String campus_name, int room_number, DateReservation date, TimeSlot time_slot)
 			throws RemoteException, NotBoundException, IOException, InterruptedException {
-		CampusUser user = new CampusUser(user_id);
-		String booking_id = null;
+		
+		CampusUser user = new CampusUser(user_id);		
 		if (!user.isStudent())
 			return null;
-		if (campus_name.equals(getName()))
-		{
-			StudentRecord record = student_db.get(user_id);
-			if (record == null)
-				record = new StudentRecord(user);
-			record.removeOldRecords(date, time_slot);
-			if (!record.canBook())
-				return null;
-			TimeSlot ts = isTimeSlotAvailable(room_number, date, time_slot);
-			if (ts == null)
-				return null;
-			booking_id = generateBookingId();
-			record.saveBookRoomRequest(booking_id, date, time_slot);
-			student_db.put(user_id, record);
-			ts.bookTimeSlot(user_id, booking_id);
-			System.out.println(getName() + ": " + student_db);
-			System.out.println(getName() + ": " + db);
-		}
-		else
-		{
-			int msg_id = MessageProtocol.generateMessageId();
-			byte[] send_msg = MessageProtocol.encodeBookRoomMessage(msg_id, user_id, room_number, date, time_slot);
-			sendMessage(send_msg, campus_name);
-			UdpServer.BookRoomObject wait_object = udp_server.new BookRoomObject(); 
-			udp_server.addToWaitList(msg_id, wait_object);
-			synchronized (wait_object) {
-				wait_object.wait();
-			}			
-			booking_id = wait_object.bookingId;
-		}
-		return booking_id;
+		
+		UserDbOperations ops = new UserDbOperations(student_db, user) {
+			
+			@Override
+			public boolean onUserBelongHere(StudentRecord record) {
+				if (!record.canBook())
+					return false;
+				return true;
+			}
+			
+			@Override
+			public void onPostUserBelongHere(StudentRecord record) {
+				record.saveBookRoomRequest(_booking_id, date, time_slot);
+				synchronized (write_student_db_lock) {
+					_student_db.put(user_id, record);
+				}				
+			}
+			
+			@Override
+			public StudentRecord onNullUserRecord(CampusUser user)
+			{
+				StudentRecord record = new StudentRecord(user);
+				return record;
+			}
+			
+			@Override
+			public boolean onOperationOnThisCampus(ArrayList<TimeSlot> time_slots) {									
+				if (time_slots == null)
+					return false;
+				TimeSlot ts = null;
+				for (TimeSlot tmp : time_slots)
+					if (tmp.equals(time_slot) && !tmp.isBooked())
+					{
+						ts = tmp;
+						break;
+					}
+				if (ts == null)
+					return false;
+				_booking_id = BookingIdGenerator.generate(getName(), date, room_number);
+				ts.bookTimeSlot(user_id, _booking_id);
+				System.out.println(getName() + ": " + _student_db);
+				System.out.println(getName() + ": " + db);
+				return true;
+			}
+			
+			@Override
+			public void onOperationOnOtherCampus(int message_id) throws NotBoundException, IOException, InterruptedException {
+				int msg_id = MessageProtocol.generateMessageId();
+				byte[] send_msg = MessageProtocol.encodeBookRoomMessage(msg_id, user_id, room_number, date, time_slot);
+				sendMessage(send_msg, campus_name);
+				UdpServer.WaitObject wait_object = udp_server.new WaitObject(); 
+				udp_server.addToWaitList(msg_id, wait_object);
+				synchronized (wait_object) {
+					wait_object.wait();
+				}			
+				_booking_id = wait_object.bookingId;
+				
+			}
+			
+			@Override
+			public ArrayList<TimeSlot> findTimeSlots()
+			{
+				return Campus.this.findTimeSlots(room_number, date);
+			}
+		};
+		
+		traverseStudentDb(ops, user, campus_name);			
+		return ops._booking_id;
 	}
 
 	@Override
@@ -302,11 +434,62 @@ public class Campus implements AdminOperations, StudentOperations, CampusOperati
 	}
 
 	@Override
-	public boolean cancelBooking(String user_id, String bookingID) throws RemoteException {
+	public boolean cancelBooking(String user_id, String bookingID) throws RemoteException, NotBoundException, IOException, InterruptedException {
 		CampusUser user = new CampusUser(user_id);
 		if (!user.isStudent())
 			return false;
-		return true;		
+		BookingIdGenerator big = new BookingIdGenerator(bookingID);
+		UserDbOperations ops = new UserDbOperations(student_db, user) {
+			
+			@Override
+			public boolean onUserBelongHere(StudentRecord record) {
+				return true;
+			}
+			
+			@Override
+			public void onPostUserBelongHere(StudentRecord record) {
+				_status = record.removeBookRoomRequest(bookingID);
+			}
+			
+			@Override
+			public boolean onOperationOnThisCampus(ArrayList<TimeSlot> time_slots) {
+				for (TimeSlot time_slot : time_slots)
+					if (time_slot.getBookingId().equals(bookingID) && time_slot.getUsername() == user_id)
+					{
+						time_slot.cancelTimeSlot();
+						return true;
+					}
+				_status = false;
+				return _status;
+			}
+			
+			@Override
+			public void onOperationOnOtherCampus(int message_id) throws NotBoundException, IOException, InterruptedException {
+				int msg_id = MessageProtocol.generateMessageId();
+				byte[] send_msg = MessageProtocol.encodeCancelBookRoomMessage(msg_id, user_id, bookingID);
+				sendMessage(send_msg, big.getCampusName());
+				UdpServer.WaitObject wait_object = udp_server.new WaitObject(); 
+				udp_server.addToWaitList(msg_id, wait_object);
+				synchronized (wait_object) {
+					wait_object.wait();
+				}
+				_status = wait_object.status;
+				
+			}
+			
+			@Override
+			public StudentRecord onNullUserRecord(CampusUser user) {return null;}
+			
+			@Override
+			public ArrayList<TimeSlot> findTimeSlots() {				
+				ArrayList<TimeSlot> time_slots = Campus.this.findTimeSlots(big.getRoomNumber(), big.getDate());
+				if (time_slots == null)
+					_status = false;
+				return time_slots;
+			}
+		};
+		traverseStudentDb(ops, user, big.getCampusName());
+		return ops._status;		
 	}
 
 	@Override
