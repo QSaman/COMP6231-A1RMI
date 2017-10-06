@@ -311,9 +311,13 @@ public class Campus implements AdminOperations, StudentOperations, CampusOperati
 		{
 			synchronized (write_student_db_lock) {
 				record = student_db.get(user.getUserId());
-				if (record == null && (record = user_db_ops.onNullUserRecord(user)) == null)
-					return;
-				student_db.put(user.getUserId(), record);
+				if (record == null)
+				{
+					record = user_db_ops.onNullUserRecord(user);
+					if (record == null)
+						return;
+					student_db.put(user.getUserId(), record);
+				}				
 			}
 			synchronized (record) {			
 				if (!user_db_ops.onUserBelongHere(record))
