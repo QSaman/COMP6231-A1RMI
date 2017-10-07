@@ -15,13 +15,13 @@ import java.util.ArrayList;
  */
 public class Bootstrap {
 	public static ArrayList<Campus> campuses = new ArrayList<Campus>();
-
-	/**
-	 * @param args
-	 * @throws RemoteException 
-	 * @throws SocketException 
-	 */
-	public static void main(String[] args) throws RemoteException, SocketException {
+	public static boolean init = false;
+	
+	public static synchronized void initServers() throws RemoteException, SocketException
+	{
+		if (init)
+			return;
+		init = true;
 		Registry registry = LocateRegistry.createRegistry(1099);
 		System.out.println("Java RMI registry created.");
 		String[] campus_names = {"DVL", "KKL", "WST"};
@@ -32,6 +32,15 @@ public class Bootstrap {
 			campus.startRmiServer();
 			campuses.add(campus);
 		}
+	}
+
+	/**
+	 * @param args
+	 * @throws RemoteException 
+	 * @throws SocketException 
+	 */
+	public static void main(String[] args) throws RemoteException, SocketException {
+		initServers();
 	}
 
 }

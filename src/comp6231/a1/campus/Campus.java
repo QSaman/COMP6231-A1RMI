@@ -15,7 +15,6 @@ import java.rmi.server.UnicastRemoteObject;
 import java.util.ArrayList;
 import java.util.HashMap;
 
-import comp6231.a1.campus.UdpServer.WaitObject;
 import comp6231.a1.common.DateReservation;
 import comp6231.a1.common.TimeSlot;
 import comp6231.a1.common.TimeSlotResult;
@@ -146,7 +145,7 @@ public class Campus implements AdminOperations, StudentOperations, CampusOperati
 	@Override
 	public boolean createRoom(String user_id, int room_number, DateReservation date, ArrayList<TimeSlot> time_slots) throws RemoteException {
 		CampusUser user = new CampusUser(user_id);
-		if (!user.isAdmin())
+		if (!user.isAdmin() || !user.getCampus().equals(getName()))
 			return false;
 		traverseDb(room_number, date, new DbOperations(db) {
 			
@@ -185,7 +184,7 @@ public class Campus implements AdminOperations, StudentOperations, CampusOperati
 	@Override
 	public boolean deleteRoom(String user_id, int room_number, DateReservation date, ArrayList<TimeSlot> time_slots) throws RemoteException {
 		CampusUser user = new CampusUser(user_id);
-		if (!user.isAdmin())
+		if (!user.isAdmin() || !user.getCampus().equals(getName()))
 			return false;
 		DbOperations ops = new DbOperations(db) {
 			
