@@ -23,13 +23,16 @@ public class MessageProtocol {
 	private DateReservation date;
 	private TimeSlot time_slot;
 	private boolean status;
+	private int available_timeslot_number;
 	
 	enum MessageType
 	{
 		Book_Room,
 		Book_Room_Response,
 		Cancel_Book_Room,
-		Cancel_Book_Room_Response
+		Cancel_Book_Room_Response,
+		Get_Available_TimeSlots,
+		Get_Available_TimeSlots_Response
 	}
 	
 	public static int generateMessageId()
@@ -130,6 +133,40 @@ public class MessageProtocol {
 		status = (tokens[2].trim().equals("success") ? true : false);
 	}
 	
+	public static byte[] encodeGetAvailableTimeSlotsMessage(int message_id, DateReservation date)
+	{
+		StringBuilder sb = new StringBuilder();
+		sb.append(MessageType.Get_Available_TimeSlots.toString()).append(delimiter).append(message_id).append(delimiter);
+		sb.append(date);
+		System.out.println("Encoded message: " + sb.toString());
+		return sb.toString().getBytes();
+	}
+	
+	public void decodeGetAvailableTimeSlotsMessage(String[] tokens)
+	{
+		if (tokens.length != 3)
+			throw new IllegalArgumentException("The number of tokens should be 3");
+		message_id = Integer.parseInt(tokens[1].trim());
+		date = new DateReservation(tokens[2].trim());
+	}
+	
+	public static byte[] encodeGetAvailableTimeSlotsResponseMessage(int message_id, int available_timeslot_number)
+	{
+		StringBuilder sb = new StringBuilder();
+		sb.append(MessageType.Get_Available_TimeSlots_Response.toString()).append(delimiter).append(message_id);
+		sb.append(delimiter).append(available_timeslot_number);
+		System.out.println("Encoded message: " + sb.toString());
+		return sb.toString().getBytes();
+	}
+	
+	public void decodeGetAvailableTimeSlotsResponseMessage(String[] tokens)
+	{
+		if (tokens.length != 3)
+			throw new IllegalArgumentException("The number of tokens should be 3");
+		message_id = Integer.parseInt(tokens[1].trim());
+		available_timeslot_number = Integer.parseInt(tokens[2].trim());
+	}
+	
 	public MessageType decodeMessage(byte[] message)
 	{
 		String str = new String(message);
@@ -150,6 +187,12 @@ public class MessageProtocol {
 			break;
 		case Cancel_Book_Room_Response:
 			decodeCancelBookRoomResponseMessage(tokens);
+			break;
+		case Get_Available_TimeSlots:
+			decodeGetAvailableTimeSlotsMessage(tokens);
+			break;
+		case Get_Available_TimeSlots_Response:
+			decodeGetAvailableTimeSlotsResponseMessage(tokens);
 			break;
 		default:
 			throw new IllegalArgumentException("Invalid response message type: " + msg_type);
@@ -197,6 +240,11 @@ public class MessageProtocol {
 	public boolean getStatus()
 	{
 		return status;
+	}
+	
+	public int getAvailableTimeSlotNumber()
+	{
+		return available_timeslot_number;
 	}
 	
 }

@@ -15,6 +15,7 @@ import java.rmi.server.UnicastRemoteObject;
 import java.util.ArrayList;
 import java.util.HashMap;
 
+import comp6231.a1.campus.UdpServer.WaitObject;
 import comp6231.a1.common.DateReservation;
 import comp6231.a1.common.TimeSlot;
 import comp6231.a1.common.TimeSlotResult;
@@ -65,6 +66,11 @@ public class Campus implements AdminOperations, StudentOperations, CampusOperati
 	
 		registry.rebind(getName(), stub);
 		System.out.println(getName() + " bound");
+	}
+	
+	@Override
+	public String getCampusName() throws RemoteException {
+		return getName();
 	}
 
 	public String getName() {
@@ -409,10 +415,10 @@ public class Campus implements AdminOperations, StudentOperations, CampusOperati
 			@Override
 			public void onOperationOnOtherCampus(int message_id) throws NotBoundException, IOException, InterruptedException {
 				int msg_id = MessageProtocol.generateMessageId();
-				byte[] send_msg = MessageProtocol.encodeBookRoomMessage(msg_id, user_id, room_number, date, time_slot);
-				sendMessage(send_msg, campus_name);
+				byte[] send_msg = MessageProtocol.encodeBookRoomMessage(msg_id, user_id, room_number, date, time_slot);				
 				UdpServer.WaitObject wait_object = udp_server.new WaitObject(); 
 				udp_server.addToWaitList(msg_id, wait_object);
+				sendMessage(send_msg, campus_name);
 				synchronized (wait_object) {
 					wait_object.wait();
 				}			
@@ -430,11 +436,71 @@ public class Campus implements AdminOperations, StudentOperations, CampusOperati
 		traverseStudentDb(ops, user, campus_name);			
 		return ops._booking_id;
 	}
+	
+	public int getThisCampusAvailableTimeSlots(DateReservation date)
+	{
+		HashMap<Integer, ArrayList<TimeSlot>> val = null;
+		synchronized (date_db_lock) {
+			val = db.get(date);
+		}
+		int ret = 0;
+		if (val == null)
+			return ret;
+		synchronized (room_db_lock) {
+			for (int room_number : val.keySet())
+			{
+				ArrayList<TimeSlot> time_slots = val.get(room_number);
+				for (TimeSlot time_slot : time_slots)
+					if (!time_slot.isBooked())
+						++ret;
+			}
+		}
+		return ret;
+	}	
 
 	@Override
-	public ArrayList<TimeSlotResult> getAvailableTimeSlot(DateReservation date) throws RemoteException {
-		// TODO Auto-generated method stub
-		return null;
+	public ArrayList<TimeSlotResult> getAvailableTimeSlot(DateReservation date) throws RemoteException, NotBoundException, IOException, InterruptedException {
+		ArrayList<TimeSlotResult> ret = new ArrayList<TimeSlotResult>();
+		ret.add(new TimeSlotResult(getName(), getThisCampusAvailableTimeSlots(date)));
+		HashMap<Integer, String> hm = new HashMap<>();	//(message_id, campus_name)
+		HashMap<Integer, UdpServer.WaitObject> hm_wo = new HashMap<>();	//(message_id, WaitObject)
+		ArrayList<Thread> threads = new ArrayList<Thread>();
+		
+		for (String campus_str : registry.list())
+		{
+			CampusOperations ops = (CampusOperations)registry.lookup(campus_str);
+			String campus_name = ops.getCampusName();
+			if (campus_name.equals(getName()))
+				continue;
+			int message_id = MessageProtocol.generateMessageId();
+			byte[] send_msg = MessageProtocol.encodeGetAvailableTimeSlotsMessage(message_id, date);
+			hm.put(message_id, campus_name);			
+			UdpServer.WaitObject wait_object = udp_server.new WaitObject();
+			udp_server.addToWaitList(message_id, wait_object);
+			sendMessage(send_msg, campus_name);
+			hm_wo.put(message_id, wait_object);
+			Thread thread = new Thread(new Runnable() {				
+				@Override
+				public void run() {
+					try {
+						synchronized (wait_object) {
+							wait_object.wait();
+						}
+						} catch (InterruptedException e) {
+							// TODO Auto-generated catch block
+							e.printStackTrace();
+						}					
+				}
+			});
+			thread.start();
+			threads.add(thread);
+		}
+		System.out.println("threads.length(): " + threads.size()); 
+		for (Thread thread : threads)
+			thread.join();
+		for (int msg_id : hm.keySet())
+			ret.add(new TimeSlotResult(hm.get(msg_id), hm_wo.get(msg_id).available_timeslots));
+		return ret;
 	}
 
 	@Override

@@ -25,6 +25,7 @@ public class UdpServer extends Thread {
 	{
 		public String bookingId;
 		public boolean status;
+		public int available_timeslots;
 	}
 	private Campus campus;
 	private DatagramSocket socket;	//https://stackoverflow.com/questions/6265731/do-java-sockets-support-full-duplex
@@ -116,6 +117,34 @@ public class UdpServer extends Thread {
 				}
 			}
 			obj.status = protocol.getStatus();
+			synchronized (obj) {
+				obj.notifyAll();
+			}
+			synchronized (wait_list_lock) {
+				wait_list.remove(protocol.getMessageId());
+			}
+			break;
+		case Get_Available_TimeSlots:
+			int res = campus.getThisCampusAvailableTimeSlots(protocol.getDate());
+			byte[] reply = MessageProtocol.encodeGetAvailableTimeSlotsResponseMessage(protocol.getMessageId(), res);
+			try {
+				sendDatagram(reply, address, port);
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+			break;
+		case Get_Available_TimeSlots_Response:
+			System.out.println("UDP server available time slots receivend: " + protocol.getAvailableTimeSlotNumber());
+			synchronized (wait_list_lock) {
+				 obj = wait_list.get(protocol.getMessageId());
+				if (obj == null)
+				{
+					System.out.println("Duplicate message recieived with id " + protocol.getMessageId());
+					return;
+				}
+			}
+			obj.available_timeslots = protocol.getAvailableTimeSlotNumber();
 			synchronized (obj) {
 				obj.notifyAll();
 			}

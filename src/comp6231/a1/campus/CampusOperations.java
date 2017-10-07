@@ -13,4 +13,5 @@ import java.rmi.RemoteException;
 public interface CampusOperations extends Remote {
 	public int getPort() throws RemoteException;
 	public String getAddress() throws RemoteException;
+	String getCampusName() throws RemoteException;
 }

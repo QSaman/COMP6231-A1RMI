@@ -12,6 +12,7 @@ import java.util.ArrayList;
 
 import comp6231.a1.common.DateReservation;
 import comp6231.a1.common.TimeSlot;
+import comp6231.a1.common.TimeSlotResult;
 import comp6231.a1.common.users.AdminOperations;
 import comp6231.a1.common.users.CampusUser;
 import comp6231.a1.common.users.StudentOperations;
@@ -105,6 +106,15 @@ public class User {
 			System.out.println("cancel booking correct");
 		else
 			System.out.println("cancel booking incorrect");
+		ArrayList<TimeSlotResult> res = user.getAvailableTimeSlot(new DateReservation("17-09-2017"));
+		if (res == null)
+			System.out.println("Incorrect");
+		else
+		{
+			System.out.println(res.size());
+			for (TimeSlotResult ts_res : res)
+				System.out.println(ts_res.getCampusName() + ": " + ts_res.getTotalAvailableSlots());
+		}
 	}
 	
 	public static void testCreateRoom(AdminOperations user, ArrayList<TimeSlot> time_slots)
