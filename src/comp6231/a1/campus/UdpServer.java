@@ -173,8 +173,14 @@ public class UdpServer extends Thread {
 			DatagramPacket packet = new DatagramPacket(buffer, datagram_send_size);
 			try {
 				socket.receive(packet);
-				
-				processRequest(packet.getData(), packet.getAddress(), packet.getPort());
+				Thread thread = new Thread(new Runnable() {
+					
+					@Override
+					public void run() {
+						UdpServer.this.processRequest(packet.getData(), packet.getAddress(), packet.getPort());
+					}
+				});
+				thread.start();
 				
 			} catch (IOException e) {
 				// TODO Auto-generated catch block
