@@ -32,7 +32,9 @@ public class MessageProtocol {
 		Cancel_Book_Room,
 		Cancel_Book_Room_Response,
 		Get_Available_TimeSlots,
-		Get_Available_TimeSlots_Response
+		Get_Available_TimeSlots_Response,
+		Remove_Student_Record,
+		Remove_Student_Record_Response
 	}
 	
 	public static int generateMessageId()
@@ -167,6 +169,42 @@ public class MessageProtocol {
 		available_timeslot_number = Integer.parseInt(tokens[2].trim());
 	}
 	
+	public static byte[] encodeRemoveStudentRecordMessage(int message_id, String user_id, String booking_id)
+	{
+		StringBuilder sb = new StringBuilder();
+		sb.append(MessageType.Remove_Student_Record.toString()).append(delimiter).append(message_id).append(delimiter);
+		sb.append(user_id).append(delimiter).append(booking_id);
+		System.out.println("Encoded message: " + sb.toString());
+		return sb.toString().getBytes();
+	}
+	
+	public void decodeRemoveStudentRecordMessage(String tokens[])
+	{
+		if (tokens.length != 4)
+			throw new IllegalArgumentException("The number of tokens should be 4");
+		message_id = Integer.parseInt(tokens[1].trim());
+		user_id = tokens[2].trim();
+		booking_id = tokens[3].trim();
+	}
+	
+	public static byte[] encodeRemoveStudentRecordResponseMessage(int message_id, boolean status)
+	{
+		String status_str = (status ? "success" : "failed");
+		StringBuilder sb = new StringBuilder();
+		sb.append(MessageType.Remove_Student_Record_Response.toString()).append(delimiter).append(message_id);
+		sb.append(delimiter).append(status_str);
+		System.out.println("Encoded message: " + sb.toString());
+		return sb.toString().getBytes();
+	}
+	
+	public void decodeRemoveStudentRecordResponseMessage(String[] tokens)
+	{
+		if (tokens.length != 3)
+			throw new IllegalArgumentException("The number of tokens should be 3");
+		message_id = Integer.parseInt(tokens[1].trim());
+		status = (tokens[2].trim().equals("success") ? true : false);		
+	}
+	
 	public MessageType decodeMessage(byte[] message)
 	{
 		String str = new String(message);
@@ -193,6 +231,12 @@ public class MessageProtocol {
 			break;
 		case Get_Available_TimeSlots_Response:
 			decodeGetAvailableTimeSlotsResponseMessage(tokens);
+			break;
+		case Remove_Student_Record:
+			decodeRemoveStudentRecordMessage(tokens);
+			break;
+		case Remove_Student_Record_Response:
+			decodeRemoveStudentRecordResponseMessage(tokens);
 			break;
 		default:
 			throw new IllegalArgumentException("Invalid response message type: " + msg_type);

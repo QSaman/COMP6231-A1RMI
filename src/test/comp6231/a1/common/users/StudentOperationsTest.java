@@ -18,6 +18,7 @@ import org.junit.Test;
 import comp6231.a1.common.DateReservation;
 import comp6231.a1.common.TimeSlot;
 import comp6231.a1.common.TimeSlotResult;
+import comp6231.a1.common.users.AdminOperations;
 import comp6231.a1.common.users.StudentOperations;
 
 public class StudentOperationsTest {
@@ -37,6 +38,7 @@ public class StudentOperationsTest {
 	
 	private static Registry registry;
 	private static boolean cancel_booking_dvl = false;
+	private static boolean test_remove_booked_room = false;
 
 	@BeforeClass
 	public static void setUpBeforeClass() throws Exception {
@@ -95,6 +97,8 @@ public class StudentOperationsTest {
 	public final void testGetAvailableTimeSlot() throws RemoteException, NotBoundException, IOException, InterruptedException {
 		if (booking_list_dvl == null)
 			testBookRoomDVL();
+		if (!test_remove_booked_room)
+			testRemoveBookedRoom();
 		StudentOperations user = (StudentOperations)registry.lookup("DVL");
 		ArrayList<TimeSlotResult> res = user.getAvailableTimeSlot(new DateReservation("19-09-2017"));
 		assertTrue(res.size() == 3);
@@ -119,6 +123,19 @@ public class StudentOperationsTest {
 		assertTrue(status);
 		status = user.cancelBooking(booking_list_dvl.get(4).student_id, booking_list_dvl.get(4).booking_id);
 		assertFalse(status);
+	}
+	
+	@Test
+	public final void testRemoveBookedRoom() throws RemoteException, NotBoundException, IOException, InterruptedException
+	{
+		if (!cancel_booking_dvl)
+			testCancelBookingDVL();
+		test_remove_booked_room = true;
+		AdminOperations user = (AdminOperations)registry.lookup("WST");
+		ArrayList<TimeSlot> list = new ArrayList<>();
+		list.add(new TimeSlot(18, 0, 19, 0));
+		boolean status = user.deleteRoom("WSTA1111", 779, new DateReservation("19-09-2017"), list);
+		assertTrue(status);
 	}
 
 }

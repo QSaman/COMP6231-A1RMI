@@ -15,6 +15,7 @@ import java.rmi.server.UnicastRemoteObject;
 import java.util.ArrayList;
 import java.util.HashMap;
 
+import comp6231.a1.campus.UdpServer.WaitObject;
 import comp6231.a1.common.DateReservation;
 import comp6231.a1.common.TimeSlot;
 import comp6231.a1.common.TimeSlotResult;
@@ -190,7 +191,11 @@ public class Campus implements AdminOperations, StudentOperations, CampusOperati
 			
 			@Override
 			public void onSubValue(ArrayList<TimeSlot> sub_val) {
-				ArrayList<TimeSlot> new_time_slots = new ArrayList<TimeSlot>(); 
+				ArrayList<Thread> threads = new ArrayList<>();
+				HashMap<Integer, WaitObject> res = new HashMap<>();	//(message_id, wait ojbect)
+				HashMap<Integer, TimeSlot> removed_list = new HashMap<>();	//(message_id, time slot)
+				
+				ArrayList<TimeSlot> new_time_slots = new ArrayList<TimeSlot>();
 				for (TimeSlot val1 : sub_val)
 				{
 					boolean found = false;
@@ -200,13 +205,79 @@ public class Campus implements AdminOperations, StudentOperations, CampusOperati
 							found = true;
 							break;
 						}
-					if (!found)
+					if (found)	//We need to delete val1 from time slot list
+					{
+						if (val1.isBooked())
+						{
+							CampusUser user = new CampusUser(val1.getUsername());
+							if (userBelongHere(user))
+							{
+								boolean status = removeStudentRecord(val1.getUsername(), val1.getBookingId());
+								if (!status)
+								{
+									_operation_status = false;
+									System.out.println("Update student record (failed)");
+								}
+							}
+							else
+							{
+								int message_id = MessageProtocol.generateMessageId();
+								byte[] send_msg = MessageProtocol.encodeRemoveStudentRecordMessage(message_id, val1.getUsername(), val1.getBookingId());								
+								try {
+									UdpServer.WaitObject wait_object = udp_server.new WaitObject();
+									udp_server.addToWaitList(message_id, wait_object);
+									Thread thread = new Thread(new Runnable() {
+										
+										@Override
+										public void run() {
+											synchronized (wait_object) {
+												try {
+													wait_object.wait();
+												} catch (InterruptedException e) {
+													// TODO Auto-generated catch block
+													e.printStackTrace();
+												}
+											}
+										}
+									});
+									res.put(message_id, wait_object);
+									removed_list.put(message_id, val1);
+									thread.start();
+									sendMessage(send_msg, user.getCampus());									
+									threads.add(thread);
+								} catch (NotBoundException | IOException e) {
+									// TODO Auto-generated catch block
+									e.printStackTrace();
+								}
+							}
+						}
+					}
+					else	//We shouldn't delete val1
 						new_time_slots.add(val1);
 				}
 				//Since we use sub_val as a lock object (see create room method), we couldn't simply use val.put(room_number, new_time_slots)
 				sub_val.clear();
 				for (TimeSlot value : new_time_slots)
 					sub_val.add(value);
+				
+				try {
+					for (Thread thread : threads)
+						thread.join();
+				} catch (InterruptedException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+				
+				for (int message_id : res.keySet())
+				{
+					TimeSlot ts = removed_list.get(message_id);
+					boolean status = res.get(message_id).status;
+					if (!status)
+					{
+						System.out.println("Cannot remove booking id (failed) " + ts.getBookingId() + " for user " + ts.getUsername());
+						_operation_status = false;
+					}
+				}
 			}
 			
 			@Override
@@ -346,7 +417,7 @@ public class Campus implements AdminOperations, StudentOperations, CampusOperati
 				user_db_ops.onPostUserBelongHere(record);
 			}
 		}
-		else if (campus_name.equals(getName()))//We received booking request from another campus
+		else if (campus_name.equals(getName()))	//We received booking request from another campus
 		{
 			ArrayList<TimeSlot> time_slots = user_db_ops.findTimeSlots();
 			if (time_slots == null)
@@ -355,8 +426,11 @@ public class Campus implements AdminOperations, StudentOperations, CampusOperati
 				user_db_ops.onOperationOnThisCampus(time_slots);
 			}			
 		}
-		else
-			throw new IllegalArgumentException("The sender campus send the message to the wrong campus: (" + campus_name + ", " + getName() + ")");
+		else	//We want to delete a room in this campus which is booked by another campus user
+		{
+			int msg_id = MessageProtocol.generateMessageId();
+			//throw new IllegalArgumentException("The sender campus send the message to the wrong campus: (" + campus_name + ", " + getName() + ")");
+		}
 	}
 	
 	@Override
@@ -416,9 +490,9 @@ public class Campus implements AdminOperations, StudentOperations, CampusOperati
 				int msg_id = MessageProtocol.generateMessageId();
 				byte[] send_msg = MessageProtocol.encodeBookRoomMessage(msg_id, user_id, room_number, date, time_slot);				
 				UdpServer.WaitObject wait_object = udp_server.new WaitObject(); 
-				udp_server.addToWaitList(msg_id, wait_object);
-				sendMessage(send_msg, campus_name);
+				udp_server.addToWaitList(msg_id, wait_object);				
 				synchronized (wait_object) {
+					sendMessage(send_msg, campus_name);
 					wait_object.wait();
 				}			
 				_booking_id = wait_object.bookingId;
@@ -475,8 +549,7 @@ public class Campus implements AdminOperations, StudentOperations, CampusOperati
 			byte[] send_msg = MessageProtocol.encodeGetAvailableTimeSlotsMessage(message_id, date);
 			hm.put(message_id, campus_name);			
 			UdpServer.WaitObject wait_object = udp_server.new WaitObject();
-			udp_server.addToWaitList(message_id, wait_object);
-			sendMessage(send_msg, campus_name);
+			udp_server.addToWaitList(message_id, wait_object);			
 			hm_wo.put(message_id, wait_object);
 			Thread thread = new Thread(new Runnable() {				
 				@Override
@@ -492,6 +565,7 @@ public class Campus implements AdminOperations, StudentOperations, CampusOperati
 				}
 			});
 			thread.start();
+			sendMessage(send_msg, campus_name);
 			threads.add(thread);
 		}
 		System.out.println("threads.length(): " + threads.size()); 
@@ -500,6 +574,19 @@ public class Campus implements AdminOperations, StudentOperations, CampusOperati
 		for (int msg_id : hm.keySet())
 			ret.add(new TimeSlotResult(hm.get(msg_id), hm_wo.get(msg_id).available_timeslots));
 		return ret;
+	}
+	
+	public boolean removeStudentRecord(String user_id, String booking_id)
+	{
+		StudentRecord record = null;
+		synchronized (write_student_db_lock) {
+			record = student_db.get(user_id);
+		}
+		if (record == null)
+			return false;
+		synchronized (record) {
+			return record.removeBookRoomRequest(booking_id);
+		}
 	}
 
 	@Override
@@ -535,11 +622,11 @@ public class Campus implements AdminOperations, StudentOperations, CampusOperati
 			@Override
 			public void onOperationOnOtherCampus(int message_id) throws NotBoundException, IOException, InterruptedException {
 				int msg_id = MessageProtocol.generateMessageId();
-				byte[] send_msg = MessageProtocol.encodeCancelBookRoomMessage(msg_id, user_id, bookingID);
-				sendMessage(send_msg, big.getCampusName());
+				byte[] send_msg = MessageProtocol.encodeCancelBookRoomMessage(msg_id, user_id, bookingID);				
 				UdpServer.WaitObject wait_object = udp_server.new WaitObject(); 
 				udp_server.addToWaitList(msg_id, wait_object);
 				synchronized (wait_object) {
+					sendMessage(send_msg, big.getCampusName());
 					wait_object.wait();
 				}
 				_status = wait_object.status;
@@ -576,5 +663,4 @@ public class Campus implements AdminOperations, StudentOperations, CampusOperati
 	public String getAddress() throws RemoteException {
 		return address;
 	}
-
 }

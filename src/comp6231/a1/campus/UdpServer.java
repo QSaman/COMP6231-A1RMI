@@ -125,17 +125,17 @@ public class UdpServer extends Thread {
 			}
 			break;
 		case Get_Available_TimeSlots:
-			int res = campus.getThisCampusAvailableTimeSlots(protocol.getDate());
-			byte[] reply = MessageProtocol.encodeGetAvailableTimeSlotsResponseMessage(protocol.getMessageId(), res);
+			System.out.println("UDP server available time slots receivend: " + protocol.getAvailableTimeSlotNumber());
+			int res = campus.getThisCampusAvailableTimeSlots(protocol.getDate());			
 			try {
+				byte[] reply = MessageProtocol.encodeGetAvailableTimeSlotsResponseMessage(protocol.getMessageId(), res);
 				sendDatagram(reply, address, port);
 			} catch (IOException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
 			break;
-		case Get_Available_TimeSlots_Response:
-			System.out.println("UDP server available time slots receivend: " + protocol.getAvailableTimeSlotNumber());
+		case Get_Available_TimeSlots_Response:			
 			synchronized (wait_list_lock) {
 				 obj = wait_list.get(protocol.getMessageId());
 				if (obj == null)
@@ -145,6 +145,34 @@ public class UdpServer extends Thread {
 				}
 			}
 			obj.available_timeslots = protocol.getAvailableTimeSlotNumber();
+			synchronized (obj) {
+				obj.notifyAll();
+			}
+			synchronized (wait_list_lock) {
+				wait_list.remove(protocol.getMessageId());
+			}
+			break;
+		case Remove_Student_Record:
+			System.out.println("UDP server receivend remove student record request: " + protocol.getUserId() + ", " + protocol.getBookingId());						
+			try {
+				boolean status = campus.removeStudentRecord(protocol.getUserId(), protocol.getBookingId());
+				byte[] reply = MessageProtocol.encodeRemoveStudentRecordResponseMessage(protocol.getMessageId(), status);
+				sendDatagram(reply, address, port);
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+			break;
+		case Remove_Student_Record_Response:
+			synchronized (wait_list_lock) {
+				 obj = wait_list.get(protocol.getMessageId());
+				if (obj == null)
+				{
+					System.out.println("Duplicate message recieived with id " + protocol.getMessageId());
+					return;
+				}
+			}
+			obj.status = protocol.getStatus();
 			synchronized (obj) {
 				obj.notifyAll();
 			}
