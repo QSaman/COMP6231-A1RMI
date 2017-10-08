@@ -48,7 +48,6 @@ public class AdminOperationsTest {
 	@Test
 	public final void testCreateRoomDVL() throws AccessException, RemoteException, NotBoundException {
 		AdminOperations user = (AdminOperations)registry.lookup("DVL");
-		
 		ArrayList<TimeSlot> time_slots = new ArrayList<TimeSlot>();
 		time_slots.add(new TimeSlot(7, 1, 8, 15));
 		time_slots.add(new TimeSlot(9, 15, 10, 15));

@@ -14,6 +14,7 @@ import java.rmi.registry.Registry;
 import java.rmi.server.UnicastRemoteObject;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.logging.Logger;
 
 import comp6231.a1.campus.UdpServer.WaitObject;
 import comp6231.a1.common.DateReservation;
@@ -42,8 +43,9 @@ public class Campus implements AdminOperations, StudentOperations, CampusOperati
 	private String address;	//The address of this server
 	private int port;	//The UDP listening port of this server	
 	private UdpServer udp_server;
+	private Logger logger;
 		
-	public Campus(String name, Registry registry, String address, int port) throws SocketException, RemoteException
+	public Campus(String name, Registry registry, String address, int port, Logger logger) throws SocketException, RemoteException
 	{
 		this.name = name;
 		this.registry = registry;
@@ -51,6 +53,7 @@ public class Campus implements AdminOperations, StudentOperations, CampusOperati
 		student_db = new HashMap<String, StudentRecord>();
 		this.address = address;
 		this.port = port;
+		this.logger = logger;
 		udp_server = new UdpServer(this); 
 		udp_server.start();
 	}
