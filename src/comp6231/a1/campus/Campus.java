@@ -426,11 +426,8 @@ public class Campus implements AdminOperations, StudentOperations, CampusOperati
 				user_db_ops.onOperationOnThisCampus(time_slots);
 			}			
 		}
-		else	//We want to delete a room in this campus which is booked by another campus user
-		{
-			int msg_id = MessageProtocol.generateMessageId();
-			//throw new IllegalArgumentException("The sender campus send the message to the wrong campus: (" + campus_name + ", " + getName() + ")");
-		}
+		else
+			throw new IllegalArgumentException("The sender campus send the message to the wrong campus: (" + campus_name + ", " + getName() + ")");
 	}
 	
 	@Override
