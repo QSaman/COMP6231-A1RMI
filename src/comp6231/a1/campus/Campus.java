@@ -291,6 +291,17 @@ public class Campus implements AdminOperations, StudentOperations, CampusOperati
 		return ops._operation_status;
 	}
 	
+	@Override
+	public void startWeek() throws RemoteException {
+		//Be careful don't use the reverse order in other places. It can be a deadlock!
+		synchronized (date_db_lock) {			
+			synchronized (write_student_db_lock) {
+				db.clear();
+				student_db.clear();
+			}
+		}
+	}
+	
 	/**
 	 * 
 	 * @param room_number
@@ -449,10 +460,7 @@ public class Campus implements AdminOperations, StudentOperations, CampusOperati
 			
 			@Override
 			public void onPostUserBelongHere(StudentRecord record) {
-				record.saveBookRoomRequest(_booking_id, date, time_slot);
-				synchronized (write_student_db_lock) {
-					_student_db.put(user_id, record);
-				}				
+				record.saveBookRoomRequest(_booking_id, date, time_slot);				
 			}
 			
 			@Override

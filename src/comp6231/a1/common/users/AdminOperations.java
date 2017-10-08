@@ -19,6 +19,7 @@ public interface AdminOperations extends Remote {
 	
 	boolean createRoom(String user_id, int room_number, DateReservation date, ArrayList<TimeSlot> time_slots) throws RemoteException;
 	boolean deleteRoom(String user_id, int room_number, DateReservation date, ArrayList<TimeSlot> time_slots) throws RemoteException;
+	void startWeek() throws RemoteException;
 	void testMethod() throws RemoteException;
 
 }
