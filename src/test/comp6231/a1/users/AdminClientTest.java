@@ -7,6 +7,7 @@ import static org.junit.Assert.*;
 
 import java.io.IOException;
 import java.rmi.NotBoundException;
+import java.rmi.RemoteException;
 import java.util.ArrayList;
 
 import org.junit.After;
@@ -137,10 +138,14 @@ public class AdminClientTest {
 
 	/**
 	 * Test method for {@link comp6231.a1.users.AdminClient#startWeek()}.
+	 * @throws NotBoundException 
+	 * @throws IOException 
+	 * @throws SecurityException 
 	 */
 	@Test
-	public final void testStartWeek() {
-		//fail("Not yet implemented"); // TODO
+	public final void testStartWeek() throws SecurityException, IOException, NotBoundException {
+		AdminClient dvla1111 = ClientUserFactory.createAdminClient(new CampusUser("DVLA1111"));
+		dvla1111.startWeek();
 	}
 
 }
