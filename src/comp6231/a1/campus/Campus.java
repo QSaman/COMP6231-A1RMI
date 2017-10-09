@@ -18,6 +18,7 @@ import java.util.logging.Logger;
 
 import comp6231.a1.campus.UdpServer.WaitObject;
 import comp6231.a1.common.DateReservation;
+import comp6231.a1.common.LoggerHelper;
 import comp6231.a1.common.TimeSlot;
 import comp6231.a1.common.TimeSlotResult;
 import comp6231.a1.common.users.AdminOperations;
@@ -68,7 +69,7 @@ public class Campus implements AdminOperations, StudentOperations, CampusOperati
 		Remote stub = UnicastRemoteObject.exportObject(this, 0);
 	
 		registry.rebind(getName(), stub);
-		System.out.println(getName() + " bound");
+		logger.info(LoggerHelper.format(getName() + " bound"));
 	}
 	
 	@Override
@@ -143,14 +144,19 @@ public class Campus implements AdminOperations, StudentOperations, CampusOperati
 		synchronized (sub_val) {
 			db_ops.onSubValue(sub_val);
 		}				
-		System.out.println(db);
 	}
 
 	@Override
 	public boolean createRoom(String user_id, int room_number, DateReservation date, ArrayList<TimeSlot> time_slots) throws RemoteException {
 		CampusUser user = new CampusUser(user_id);
+		String log_msg = String.format("received createRoom(user_id: %s, room_number: %d, date: %s, time slots: %s",
+				user_id, room_number, date, time_slots);
+		logger.info(LoggerHelper.format(log_msg));
 		if (!user.isAdmin() || !user.getCampus().equals(getName()))
+		{
+			logger.warning(LoggerHelper.format(String.format("%s is not authorized to createRoom in %s", user_id, getName())));
 			return false;
+		}
 		traverseDb(room_number, date, new DbOperations(db) {
 			
 			@Override
@@ -161,6 +167,7 @@ public class Campus implements AdminOperations, StudentOperations, CampusOperati
 					for (TimeSlot cur : sub_val)
 						if (cur.conflict(time_slot))
 						{
+							logger.warning(LoggerHelper.format(String.format("There is a conflict between %s and %s", cur, time_slot)));
 							conflict = true;
 							break;
 						}
@@ -172,6 +179,7 @@ public class Campus implements AdminOperations, StudentOperations, CampusOperati
 			@Override
 			public HashMap<Integer, ArrayList<TimeSlot>> onNullValue() {
 				HashMap<Integer, ArrayList<TimeSlot>> val = new HashMap<Integer, ArrayList<TimeSlot>>();
+				logger.finest(LoggerHelper.format(String.format("There aren't any record for room number %d. I create one.", room_number)));
 				val.put(room_number, time_slots);
 				return val;
 			}
@@ -187,9 +195,15 @@ public class Campus implements AdminOperations, StudentOperations, CampusOperati
 	//TODO reduce student count if the reservation is deleted
 	@Override
 	public boolean deleteRoom(String user_id, int room_number, DateReservation date, ArrayList<TimeSlot> time_slots) throws RemoteException {
+		String log_msg = String.format("received deleteRoom(user id: %s, room number: %d, date: %s, time slots: %s", 
+				user_id, room_number, date, time_slots);
+		logger.info(LoggerHelper.format(log_msg));
 		CampusUser user = new CampusUser(user_id);
 		if (!user.isAdmin() || !user.getCampus().equals(getName()))
+		{
+			logger.warning(LoggerHelper.format(String.format("%s is not authorized to deleteRoom in %s", user_id, getName())));
 			return false;
+		}
 		DbOperations ops = new DbOperations(db) {
 			
 			@Override
@@ -207,7 +221,7 @@ public class Campus implements AdminOperations, StudentOperations, CampusOperati
 						{
 							found = true;
 							break;
-						}
+						}					
 					if (found)	//We need to delete val1 from time slot list
 					{
 						if (val1.isBooked())
@@ -215,15 +229,25 @@ public class Campus implements AdminOperations, StudentOperations, CampusOperati
 							CampusUser user = new CampusUser(val1.getUsername());
 							if (userBelongHere(user))
 							{
-								boolean status = removeStudentRecord(val1.getUsername(), val1.getBookingId());
+								logger.info(String.format("%s who is in this campus, booked time slot %s." +
+										"I'm going to remove booking id %s from his/her record while deleting time slot", 
+										val1.getUsername(), val1, val1.getBookingId()));
+								boolean status = removeStudentRecord(val1.getUsername(), val1.getBookingId());								
 								if (!status)
 								{
+									logger.severe(String.format("I cannot delete booking id %s from %s records ", 
+											val1.getBookingId(), val1.getUsername()));
 									_operation_status = false;
-									System.out.println("Update student record (failed)");
 								}
 							}
 							else
 							{
+								CampusUser a_user = new CampusUser(val1.getUsername());
+								logger.info(String.format("%s who is in another campus (%s), booked time slot %s." +
+										"I'm going to send a request to that campus to remove booking id %s from" + 
+										" his/her record while I'm deleting this time slot", val1.getUsername(), 
+										a_user.getCampus(), val1, val1.getBookingId()));
+								
 								int message_id = MessageProtocol.generateMessageId();
 								byte[] send_msg = MessageProtocol.encodeRemoveStudentRecordMessage(message_id, val1.getUsername(), val1.getBookingId());								
 								try {
@@ -256,7 +280,10 @@ public class Campus implements AdminOperations, StudentOperations, CampusOperati
 						}
 					}
 					else	//We shouldn't delete val1
+					{
+						logger.warning(String.format("I couldn't find %s in time slot database", val1));
 						new_time_slots.add(val1);
+					}
 				}
 				//Since we use sub_val as a lock object (see create room method), we couldn't simply use val.put(room_number, new_time_slots)
 				sub_val.clear();
@@ -277,17 +304,28 @@ public class Campus implements AdminOperations, StudentOperations, CampusOperati
 					boolean status = res.get(message_id).status;
 					if (!status)
 					{
-						System.out.println("Cannot remove booking id (failed) " + ts.getBookingId() + " for user " + ts.getUsername());
+						CampusUser a_user = new CampusUser(ts.getUsername());
+						logger.severe(String.format("%s campus cannot delete booking id %s from student %s records",
+								a_user.getCampus(), ts.getBookingId(), ts.getUsername()));
 						_operation_status = false;
 					}
 				}
 			}
 			
 			@Override
-			public HashMap<Integer, ArrayList<TimeSlot>> onNullValue() {_operation_status = false; return null;}
+			public HashMap<Integer, ArrayList<TimeSlot>> onNullValue() {
+				_operation_status = false;
+				logger.severe(String.format("%s doesn't have any room numbers!", date));
+				return null;
+				}
 			
 			@Override
-			public ArrayList<TimeSlot> onNullSubValue(HashMap<Integer, ArrayList<TimeSlot>> val) {_operation_status = false; return null;}
+			public ArrayList<TimeSlot> onNullSubValue(HashMap<Integer, ArrayList<TimeSlot>> val) {
+				_operation_status = false;
+				logger.severe(String.format("We don't have any time slots for date %s and room number %d",
+						date, room_number));
+				return null;
+				}
 		};
 		
 		traverseDb(room_number, date, ops);
@@ -296,6 +334,7 @@ public class Campus implements AdminOperations, StudentOperations, CampusOperati
 	
 	@Override
 	public void startWeek() throws RemoteException {
+		logger.info(LoggerHelper.format("recieved a request for starting a new week"));
 		//Be careful don't use the reverse order in other places. It can be a deadlock!
 		synchronized (date_db_lock) {			
 			synchronized (write_student_db_lock) {
@@ -448,9 +487,15 @@ public class Campus implements AdminOperations, StudentOperations, CampusOperati
 	public String bookRoom(String user_id, String campus_name, int room_number, DateReservation date, TimeSlot time_slot)
 			throws RemoteException, NotBoundException, IOException, InterruptedException {
 		
-		CampusUser user = new CampusUser(user_id);		
+		CampusUser user = new CampusUser(user_id);
+		String log_msg = String.format("received bookRoom(user id: %s, campus name: %s, " + 
+		"room number: %d, date: %s, time slot: %s)", user_id, campus_name, room_number, date, time_slot);
+		logger.info(LoggerHelper.format(log_msg));
 		if (!user.isStudent())
+		{
+			logger.warning(String.format("user %s is not allowed to bookRoom in %s campus", user_id, getName()));
 			return null;
+		}
 		
 		UserDbOperations ops = new UserDbOperations(student_db, user) {
 			
@@ -474,7 +519,8 @@ public class Campus implements AdminOperations, StudentOperations, CampusOperati
 			}
 			
 			@Override
-			public boolean onOperationOnThisCampus(ArrayList<TimeSlot> time_slots) {									
+			public boolean onOperationOnThisCampus(ArrayList<TimeSlot> time_slots) {
+				logger.fine(String.format("bookRoom for user %s is going to be done here", user_id));
 				if (time_slots == null)
 					return false;
 				TimeSlot ts = null;
@@ -485,16 +531,18 @@ public class Campus implements AdminOperations, StudentOperations, CampusOperati
 						break;
 					}
 				if (ts == null)
+				{
+					logger.warning(String.format("I cannot find time slot %s or it is booked before in database (bookRoom)", time_slot));
 					return false;
+				}
 				_booking_id = BookingIdGenerator.generate(getName(), date, room_number);
 				ts.bookTimeSlot(user_id, _booking_id);
-				System.out.println(getName() + ": " + _student_db);
-				System.out.println(getName() + ": " + db);
 				return true;
 			}
 			
 			@Override
 			public void onOperationOnOtherCampus(int message_id) throws NotBoundException, IOException, InterruptedException {
+				logger.fine(String.format("I'm going to send a request to campus %s for booking a room", campus_name));
 				int msg_id = MessageProtocol.generateMessageId();
 				byte[] send_msg = MessageProtocol.encodeBookRoomMessage(msg_id, user_id, room_number, date, time_slot);				
 				UdpServer.WaitObject wait_object = udp_server.new WaitObject(); 
@@ -541,6 +589,9 @@ public class Campus implements AdminOperations, StudentOperations, CampusOperati
 
 	@Override
 	public ArrayList<TimeSlotResult> getAvailableTimeSlot(DateReservation date) throws RemoteException, NotBoundException, IOException, InterruptedException {
+		String log_msg = String.format("received getAvailableTimeSlot(date: %s)", date);
+		logger.info(LoggerHelper.format(log_msg));
+		
 		ArrayList<TimeSlotResult> ret = new ArrayList<TimeSlotResult>();
 		ret.add(new TimeSlotResult(getName(), getThisCampusAvailableTimeSlots(date)));
 		HashMap<Integer, String> hm = new HashMap<>();	//(message_id, campus_name)
@@ -600,8 +651,14 @@ public class Campus implements AdminOperations, StudentOperations, CampusOperati
 	@Override
 	public boolean cancelBooking(String user_id, String bookingID) throws RemoteException, NotBoundException, IOException, InterruptedException {
 		CampusUser user = new CampusUser(user_id);
+		String log_msg = String.format("received cancelBooking(user id: %s, booking id: %s)", user_id, bookingID);
+		logger.info(LoggerHelper.format(log_msg));
 		if (!user.isStudent())
+		{
+			logger.warning(String.format("user %s is not authorized to cancelBooking in this campus (%s)", 
+					user_id, getName()));
 			return false;
+		}
 		BookingIdGenerator big = new BookingIdGenerator(bookingID);
 		UserDbOperations ops = new UserDbOperations(student_db, user) {
 			

@@ -86,7 +86,7 @@ public class AdminClientTest {
 	 * @throws NotBoundException
 	 */
 	@Test
-	public final void testCreateRoomDVLKKL() throws SecurityException, IOException, NotBoundException {
+	public final void testCreateRoomKKL() throws SecurityException, IOException, NotBoundException {
 		AdminClient kkla1111 = ClientUserFactory.createAdminClient(new CampusUser("KKLA1111"));
 		ArrayList<TimeSlot> time_slots = new ArrayList<TimeSlot>();
 		time_slots.add(new TimeSlot(8, 0, 10, 0));
@@ -100,7 +100,7 @@ public class AdminClientTest {
 	}
 	
 	@Test
-	public final void testCreateRoomDVLWST() throws SecurityException, IOException, NotBoundException {
+	public final void testCreateRoomWST() throws SecurityException, IOException, NotBoundException {
 		AdminClient wsta1111 = ClientUserFactory.createAdminClient(new CampusUser("WSTA1111"));
 		ArrayList<TimeSlot> time_slots = new ArrayList<TimeSlot>();
 		time_slots.add(new TimeSlot(14, 0, 15, 0));
@@ -117,10 +117,22 @@ public class AdminClientTest {
 
 	/**
 	 * Test method for {@link comp6231.a1.users.AdminClient#deleteRoom(int, comp6231.a1.common.DateReservation, java.util.ArrayList)}.
+	 * @throws NotBoundException 
+	 * @throws IOException 
+	 * @throws SecurityException 
 	 */
 	@Test
-	public final void testDeleteRoom() {
-		//fail("Not yet implemented"); // TODO
+	public final void testDeleteRoomDVL() throws SecurityException, IOException, NotBoundException {
+		AdminClient dvla1111 = ClientUserFactory.createAdminClient(new CampusUser("DVLA1111"));
+		dvla1111.startWeek();
+		testCreateRoomDVL();
+		
+		DateReservation date = new DateReservation("17-09-2017");
+		int room_number = 777;
+		ArrayList<TimeSlot> time_slots = new ArrayList<TimeSlot>();
+		time_slots.add(new TimeSlot(7, 1, 8, 15));
+		boolean res = dvla1111.deleteRoom(room_number, date, time_slots);
+		assertTrue(res);
 	}
 
 	/**

@@ -39,10 +39,10 @@ public class AdminClient {
 
 	public boolean deleteRoom(int room_number, DateReservation date, ArrayList<TimeSlot> time_slots)
 			throws RemoteException {
-		String log_msg = String.format("%s sending deleteRoom(%i, %s, %s)", user.getUserId(), room_number, date, time_slots);
+		String log_msg = String.format("%s sending deleteRoom(%d, %s, %s)", user.getUserId(), room_number, date, time_slots);
 		logger.info(LoggerHelper.format(log_msg));
 		boolean status = remote_stub.deleteRoom(user.getUserId(), room_number, date, time_slots);
-		log_msg = String.format("%s deleteRoom(%i, %s, %s): %s", user.getUserId(), room_number, date, time_slots, status);
+		log_msg = String.format("%s deleteRoom(%d, %s, %s): %s", user.getUserId(), room_number, date, time_slots, status);
 		return status;
 	}
 

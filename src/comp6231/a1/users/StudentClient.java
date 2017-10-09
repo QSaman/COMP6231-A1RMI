@@ -31,6 +31,7 @@ public class StudentClient {
 		this.remote_stub = remote_stub;
 		this.logger = logger;
 		this.user = user;
+		logger.info("**********************************");
 	}
 
 	/* (non-Javadoc)
@@ -38,9 +39,14 @@ public class StudentClient {
 	 */
 	public String bookRoom(String campus_name, int room_number, DateReservation date,
 			TimeSlot time_slot) throws RemoteException, NotBoundException, IOException, InterruptedException {
-		String log_str = new String();
-		log_str = user.getUserId() + " sending bookRoom(" + campus_name + ", " + room_number + ", " + date + ", " + time_slot;
-		return remote_stub.bookRoom(user.getUserId(), campus_name, room_number, date, time_slot);
+		String log_msg = String.format("sending bookRoom(campus name: %s, room number: %d, date: %s, time slot: %s)", 
+				campus_name, room_number, date, time_slot);
+		logger.info(LoggerHelper.format(log_msg));
+		String res = remote_stub.bookRoom(user.getUserId(), campus_name, room_number, date, time_slot);
+		log_msg = String.format("bookRoom(campus name: %s, room number: %d, date: %s, time slot: %s): %s", 
+				campus_name, room_number, date, time_slot, (res == null ? "null" : res));
+		logger.info(LoggerHelper.format(log_msg));
+		return res;
 	}
 
 	/* (non-Javadoc)
@@ -48,8 +54,11 @@ public class StudentClient {
 	 */
 	public ArrayList<TimeSlotResult> getAvailableTimeSlot(DateReservation date)
 			throws RemoteException, NotBoundException, IOException, InterruptedException {
-
-		return remote_stub.getAvailableTimeSlot(date);
+		String log_msg = String.format("%s is sending getAvailableTimeSlot(date %s)", user.getUserId(), date);
+		logger.info(LoggerHelper.format(log_msg));
+		ArrayList<TimeSlotResult> res = remote_stub.getAvailableTimeSlot(date);
+		log_msg = String.format("%s is sending getAvailableTimeSlot(date %s): %s", user.getUserId(), date, res);
+		return res;
 	}
 
 	/* (non-Javadoc)
@@ -57,8 +66,12 @@ public class StudentClient {
 	 */
 	public boolean cancelBooking(String bookingID)
 			throws RemoteException, NotBoundException, IOException, InterruptedException {
-		
-		return remote_stub.cancelBooking(user.getUserId(), bookingID);
+		String log_msg = String.format("%s is sending cancelBooking(booking id: %s)", user.getUserId(), bookingID);
+		logger.info(LoggerHelper.format(log_msg));
+		boolean status = remote_stub.cancelBooking(user.getUserId(), bookingID);
+		log_msg = String.format("%s is sending cancelBooking(booking id: %s)", user.getUserId(), bookingID);
+		logger.info(LoggerHelper.format(log_msg));
+		return status;
 	}
 
 }
