@@ -332,16 +332,70 @@ public class Campus implements AdminOperations, StudentOperations, CampusOperati
 		return ops._operation_status;
 	}
 	
-	@Override
-	public void startWeek() throws RemoteException {
-		logger.info(LoggerHelper.format("recieved a request for starting a new week"));
+	/**
+	 * This method is not thread-safe!!!
+	 */
+	private void clearAllDatabases()
+	{
+		db.clear();
+		student_db.clear();
+	}
+	public void startWeek()
+	{
 		//Be careful don't use the reverse order in other places. It can be a deadlock!
 		synchronized (date_db_lock) {			
 			synchronized (write_student_db_lock) {
-				db.clear();
-				student_db.clear();
+				clearAllDatabases();
 			}
 		}
+	}
+	@Override
+	public boolean startWeek(String user_id) throws RemoteException, NotBoundException, IOException, InterruptedException {
+		logger.info(LoggerHelper.format(String.format("recieved a request for starting a new week from user %s", user_id)));
+		CampusUser user = new CampusUser(user_id);
+		if (!user.isAdmin() && !user.getCampus().equals(getName()))
+		{
+			logger.warning(String.format("user %s is not authorized to start week in this campus (%s)", user_id, getName()));
+			return false;
+		}
+		//Be careful don't use the reverse order in other places. It can be a deadlock!
+		synchronized (date_db_lock) {			
+			synchronized (write_student_db_lock) {
+				clearAllDatabases();
+				ArrayList<Thread> threads = new ArrayList<Thread>();				
+				for (String campus_str : registry.list())
+				{
+					CampusOperations ops = (CampusOperations)registry.lookup(campus_str);
+					String campus_name = ops.getCampusName();
+					if (campus_name.equals(getName()))
+						continue;
+					int message_id = MessageProtocol.generateMessageId();
+					byte[] send_msg = MessageProtocol.encodeStartWeekMessage(message_id);
+					UdpServer.WaitObject wait_object = udp_server.new WaitObject();
+					udp_server.addToWaitList(message_id, wait_object);			
+					Thread thread = new Thread(new Runnable() {				
+						@Override
+						public void run() {
+							try {
+								synchronized (wait_object) {
+									wait_object.wait();
+								}
+								} catch (InterruptedException e) {
+									// TODO Auto-generated catch block
+									e.printStackTrace();
+								}					
+						}
+					});
+					thread.start();
+					sendMessage(send_msg, campus_name);
+					threads.add(thread);
+				}
+				for (Thread thread : threads)
+					thread.join();
+			}
+		}
+		
+		return true;
 	}
 	
 	/**
@@ -425,7 +479,7 @@ public class Campus implements AdminOperations, StudentOperations, CampusOperati
 		public abstract boolean onUserBelongHere(StudentRecord record);
 		public abstract StudentRecord onNullUserRecord(CampusUser user);
 		public abstract boolean onOperationOnThisCampus(ArrayList<TimeSlot> time_slots);
-		public abstract void onOperationOnOtherCampus(int message_id) throws NotBoundException, IOException, InterruptedException;
+		public abstract boolean onOperationOnOtherCampus(int message_id) throws NotBoundException, IOException, InterruptedException;
 		public abstract void onPostUserBelongHere(StudentRecord record);
 		public abstract ArrayList<TimeSlot> findTimeSlots();
 	}
@@ -465,7 +519,8 @@ public class Campus implements AdminOperations, StudentOperations, CampusOperati
 				else
 				{
 					int msg_id = MessageProtocol.generateMessageId();
-					user_db_ops.onOperationOnOtherCampus(msg_id);
+					if (!user_db_ops.onOperationOnOtherCampus(msg_id))
+						return;
 				}
 				user_db_ops.onPostUserBelongHere(record);
 			}
@@ -541,7 +596,7 @@ public class Campus implements AdminOperations, StudentOperations, CampusOperati
 			}
 			
 			@Override
-			public void onOperationOnOtherCampus(int message_id) throws NotBoundException, IOException, InterruptedException {
+			public boolean onOperationOnOtherCampus(int message_id) throws NotBoundException, IOException, InterruptedException {
 				logger.fine(String.format("I'm going to send a request to campus %s for booking a room", campus_name));
 				int msg_id = MessageProtocol.generateMessageId();
 				byte[] send_msg = MessageProtocol.encodeBookRoomMessage(msg_id, user_id, room_number, date, time_slot);				
@@ -552,7 +607,7 @@ public class Campus implements AdminOperations, StudentOperations, CampusOperati
 					wait_object.wait();
 				}			
 				_booking_id = wait_object.bookingId;
-				
+				return _booking_id != null;
 			}
 			
 			@Override
@@ -685,7 +740,7 @@ public class Campus implements AdminOperations, StudentOperations, CampusOperati
 			}
 			
 			@Override
-			public void onOperationOnOtherCampus(int message_id) throws NotBoundException, IOException, InterruptedException {
+			public boolean onOperationOnOtherCampus(int message_id) throws NotBoundException, IOException, InterruptedException {
 				int msg_id = MessageProtocol.generateMessageId();
 				byte[] send_msg = MessageProtocol.encodeCancelBookRoomMessage(msg_id, user_id, bookingID);				
 				UdpServer.WaitObject wait_object = udp_server.new WaitObject(); 
@@ -695,7 +750,7 @@ public class Campus implements AdminOperations, StudentOperations, CampusOperati
 					wait_object.wait();
 				}
 				_status = wait_object.status;
-				
+				return _status;				
 			}
 			
 			@Override

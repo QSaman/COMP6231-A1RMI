@@ -180,6 +180,34 @@ public class UdpServer extends Thread {
 				wait_list.remove(protocol.getMessageId());
 			}
 			break;
+		case Start_Week:
+			System.out.println("UDP server received start week request");
+			try {
+				campus.startWeek();
+				byte[] reply = MessageProtocol.encodeStartWeekResponseMessage(protocol.getMessageId(), true);
+				sendDatagram(reply, address, port);
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+			break;
+		case Start_Week_Response:
+			synchronized (wait_list_lock) {
+				 obj = wait_list.get(protocol.getMessageId());
+				if (obj == null)
+				{
+					System.out.println("Duplicate message recieived with id " + protocol.getMessageId());
+					return;
+				}
+			}
+			obj.status = protocol.getStatus();
+			synchronized (obj) {
+				obj.notifyAll();
+			}
+			synchronized (wait_list_lock) {
+				wait_list.remove(protocol.getMessageId());
+			}
+			break;
 		}
 	}
 	

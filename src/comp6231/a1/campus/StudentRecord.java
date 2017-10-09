@@ -108,7 +108,8 @@ public class StudentRecord {
 	{
 		for (int i = 0; i < records.size(); ++i)
 		{
-			if (records.get(i).booking_id.equals(booking_id))
+			String bi = records.get(i).booking_id; 
+			if (bi.equals(booking_id))
 			{
 				records.remove(i);
 				return true;

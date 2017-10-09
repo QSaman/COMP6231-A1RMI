@@ -121,9 +121,10 @@ public class AdminClientTest {
 	 * @throws NotBoundException 
 	 * @throws IOException 
 	 * @throws SecurityException 
+	 * @throws InterruptedException 
 	 */
 	@Test
-	public final void testDeleteRoomDVL() throws SecurityException, IOException, NotBoundException {
+	public final void testDeleteRoomDVL() throws SecurityException, IOException, NotBoundException, InterruptedException {
 		AdminClient dvla1111 = ClientUserFactory.createAdminClient(new CampusUser("DVLA1111"));
 		dvla1111.startWeek();
 		testCreateRoomDVL();
@@ -141,9 +142,10 @@ public class AdminClientTest {
 	 * @throws NotBoundException 
 	 * @throws IOException 
 	 * @throws SecurityException 
+	 * @throws InterruptedException 
 	 */
 	@Test
-	public final void testStartWeek() throws SecurityException, IOException, NotBoundException {
+	public final void testStartWeek() throws SecurityException, IOException, NotBoundException, InterruptedException {
 		AdminClient dvla1111 = ClientUserFactory.createAdminClient(new CampusUser("DVLA1111"));
 		dvla1111.startWeek();
 	}

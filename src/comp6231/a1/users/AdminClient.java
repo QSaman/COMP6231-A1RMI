@@ -1,5 +1,7 @@
 package comp6231.a1.users;
 
+import java.io.IOException;
+import java.rmi.NotBoundException;
 import java.rmi.RemoteException;
 import java.util.ArrayList;
 import java.util.logging.Logger;
@@ -46,10 +48,12 @@ public class AdminClient {
 		return status;
 	}
 
-	public void startWeek() throws RemoteException {
+	public boolean startWeek() throws NotBoundException, IOException, InterruptedException {
 		String log_msg = String.format("%s sending startWeek", user.getUserId());
 		logger.info(LoggerHelper.format(log_msg));
-		remote_stub.startWeek();		
+		boolean status = remote_stub.startWeek(user.getUserId());
+		log_msg = String.format("%s sending startWeek: %s", user.getUserId(), status);
+		return status;
 	}
 
 	public void testMethod() throws RemoteException {

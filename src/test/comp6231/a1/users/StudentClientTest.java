@@ -20,8 +20,6 @@ import comp6231.a1.campus.Bootstrap;
 import comp6231.a1.common.DateReservation;
 import comp6231.a1.common.TimeSlot;
 import comp6231.a1.common.users.CampusUser;
-import comp6231.a1.common.users.StudentOperations;
-import comp6231.a1.users.AdminClient;
 import comp6231.a1.users.ClientUserFactory;
 import comp6231.a1.users.StudentClient;
 
@@ -85,7 +83,7 @@ public class StudentClientTest {
 	 * @throws NotBoundException 
 	 * @throws RemoteException 
 	 */
-	//@Test
+	@Test
 	public final void testBookRoomDVL() throws RemoteException, NotBoundException, IOException, InterruptedException {
 		admin_test.testStartWeek();
 		admin_test.testCreateRoomDVL();
@@ -136,17 +134,18 @@ public class StudentClientTest {
 	@Test
 	public final void testCancelBooking() throws SecurityException, IOException, NotBoundException, InterruptedException {
 		testBookRoomDVL();
-		testBookRoomDVL();
-//		
-//		StudentClient client = ClientUserFactory.createStudentClient(new CampusUser("DVLS1111"));
-//		boolean status = client.cancelBooking("DVL@17-9-2017@777#999999");
-//		assertFalse("This booking id is not valid", status);
-////		status = client.cancelBooking(booking_list_dvl.get(0).booking_id);
-////		assertTrue(status);
-////		status = client.cancelBooking(booking_list_dvl.get(4).booking_id);
-////		assertTrue(status);
-////		status = client.cancelBooking(booking_list_dvl.get(4).booking_id);
-//		assertFalse(status);
+		
+		StudentClient client = ClientUserFactory.createStudentClient(new CampusUser("DVLS1111"));
+		boolean status = client.cancelBooking("DVL@17-9-2017@777#999999");
+		assertFalse("This booking id is not valid", status);
+		client = ClientUserFactory.createStudentClient(new CampusUser(booking_list_dvl.get(0).student_id));
+		status = client.cancelBooking(booking_list_dvl.get(0).booking_id);
+		assertTrue(status);
+		client = ClientUserFactory.createStudentClient(new CampusUser(booking_list_dvl.get(4).student_id));
+		status = client.cancelBooking(booking_list_dvl.get(4).booking_id);
+		assertTrue(status);
+		status = client.cancelBooking(booking_list_dvl.get(4).booking_id);
+		assertFalse(status);
 	}
 
 }

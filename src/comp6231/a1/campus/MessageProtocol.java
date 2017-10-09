@@ -34,7 +34,9 @@ public class MessageProtocol {
 		Get_Available_TimeSlots,
 		Get_Available_TimeSlots_Response,
 		Remove_Student_Record,
-		Remove_Student_Record_Response
+		Remove_Student_Record_Response,
+		Start_Week,
+		Start_Week_Response
 	}
 	
 	public static int generateMessageId()
@@ -205,6 +207,39 @@ public class MessageProtocol {
 		status = (tokens[2].trim().equals("success") ? true : false);		
 	}
 	
+	public static byte[] encodeStartWeekMessage(int message_id)
+	{
+		StringBuilder sb = new StringBuilder();
+		sb.append(MessageType.Start_Week.toString()).append(delimiter).append(message_id);
+		System.out.println("Encoded message: " + sb.toString());
+		return sb.toString().getBytes();
+	}
+	
+	public void decodeStartWeekMessage(String[] tokens)
+	{
+		if (tokens.length != 2)
+			throw new IllegalArgumentException("The number of tokens should be 2");
+		message_id = Integer.parseInt(tokens[1].trim());
+	}
+	
+	public static byte[] encodeStartWeekResponseMessage(int message_id, boolean status)
+	{
+		String status_str = (status ? "success" : "failed");
+		StringBuilder sb = new StringBuilder();
+		sb.append(MessageType.Start_Week_Response.toString()).append(delimiter).append(message_id).append(delimiter);
+		sb.append(status_str);
+		System.out.println("Encoded message: " + sb.toString());
+		return sb.toString().getBytes();
+	}
+	
+	public void decodeStartWeekResponseMessage(String[] tokens)
+	{
+		if (tokens.length != 3)
+			throw new IllegalArgumentException("The number of tokens should be 3");
+		message_id = Integer.parseInt(tokens[1].trim());
+		status = (tokens[2].trim().equals("success") ? true : false);	
+	}
+	
 	public MessageType decodeMessage(byte[] message)
 	{
 		String str = new String(message);
@@ -237,6 +272,12 @@ public class MessageProtocol {
 			break;
 		case Remove_Student_Record_Response:
 			decodeRemoveStudentRecordResponseMessage(tokens);
+			break;
+		case Start_Week:
+			decodeStartWeekMessage(tokens);
+			break;
+		case Start_Week_Response:
+			decodeStartWeekResponseMessage(tokens);
 			break;
 		default:
 			throw new IllegalArgumentException("Invalid response message type: " + msg_type);
