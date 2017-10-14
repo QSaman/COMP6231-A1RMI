@@ -139,6 +139,7 @@ public class Campus implements AdminOperations, StudentOperations, CampusOperati
 				 if (sub_val == null)
 					 return;
 				 val.put(room_number, sub_val);
+				 return;
 			 }
 		}
 		synchronized (sub_val) {
@@ -180,7 +181,6 @@ public class Campus implements AdminOperations, StudentOperations, CampusOperati
 			public HashMap<Integer, ArrayList<TimeSlot>> onNullValue() {
 				HashMap<Integer, ArrayList<TimeSlot>> val = new HashMap<Integer, ArrayList<TimeSlot>>();
 				logger.finest(LoggerHelper.format(String.format("There aren't any record for room number %d. I create one.", room_number)));
-				val.put(room_number, time_slots);
 				return val;
 			}
 			

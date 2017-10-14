@@ -55,9 +55,9 @@ public class TimeSlot implements Serializable {
 	
 	private void initTimeSlot(int hour1, int minute1, int hour2, int minute2)
 	{
-		if (hour1< 0 || hour1 > 23)
+		if (hour1< 0 || hour1 > 24)
 			throw new IllegalArgumentException(hour1 + " is invalid for hour");
-		if (hour2 < 0 || hour2 > 23)
+		if (hour2 < 0 || hour2 > 24)
 			throw new IllegalArgumentException(hour2 + " is invalid for hour");
 		if (minute1 < 0 || minute1 > 59)
 			throw new IllegalArgumentException(minute1 + " is invalid for minute");
@@ -131,9 +131,9 @@ public class TimeSlot implements Serializable {
 			time[i] = getTime(i);
 		}
 		
-		if (external_time[0] >= time[0] && external_time[0] <= time[1])
+		if (external_time[0] >= time[0] && external_time[0] < time[1])
 			return true;
-		if (external_time[1] >= time[0] && external_time[1] <= time[1])
+		if (external_time[1] >= time[0] && external_time[1] < time[1])
 			return true;
 		return false;
 	}

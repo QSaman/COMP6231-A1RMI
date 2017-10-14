@@ -2,6 +2,7 @@ package test.comp6231.a1.common.users;
 
 import static org.junit.Assert.*;
 
+import java.io.IOException;
 import java.rmi.AccessException;
 import java.rmi.NotBoundException;
 import java.rmi.RemoteException;
@@ -22,7 +23,6 @@ import comp6231.a1.common.users.AdminOperations;
 
 public class AdminOperationsTest {
 	private static Registry registry;
-	static boolean testCreateRoomDVLInit = false;
 
 	@BeforeClass
 	public static void setUpBeforeClass() throws Exception {
@@ -62,7 +62,6 @@ public class AdminOperationsTest {
 		time_slots.add(new TimeSlot(11, 0, 14, 55));
 		res = user.createRoom("DVLA1111", room_number, date, time_slots);
 		assertTrue(res);
-		testCreateRoomDVLInit = true;
 	}
 	
 	@Test
@@ -96,10 +95,10 @@ public class AdminOperationsTest {
 	}
 
 	@Test
-	public final void testDeleteRoomDVL() throws AccessException, RemoteException, NotBoundException {
-		if (!testCreateRoomDVLInit)
-			testCreateRoomDVL();
+	public final void testDeleteRoomDVL() throws NotBoundException, IOException, InterruptedException {
 		AdminOperations user = (AdminOperations)registry.lookup("DVL");
+		startWeek();
+		testCreateRoomDVL();		
 		DateReservation date = new DateReservation("17-09-2017");
 		int room_number = 777;
 		ArrayList<TimeSlot> time_slots = new ArrayList<TimeSlot>();
@@ -108,6 +107,11 @@ public class AdminOperationsTest {
 		assertFalse("admin from another campus shouldn't delete the room", res);
 		res = user.deleteRoom("DVLA1111", room_number, date, time_slots);
 		assertTrue(res);
+	}
+	
+	public final void startWeek() throws NotBoundException, IOException, InterruptedException {
+		AdminOperations user = (AdminOperations)registry.lookup("DVL");
+		user.startWeek("DVLA0000");
 	}
 
 }
